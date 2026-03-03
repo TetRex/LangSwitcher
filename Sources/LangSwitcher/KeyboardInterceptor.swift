@@ -128,7 +128,9 @@ final class KeyboardInterceptor {
             let word = currentWord
             currentWord = ""
             if CyrillicMapper.isCyrillic(word),
-               let english = CyrillicMapper.convert(word) {
+               !CyrillicMapper.isValidRussianWord(word),
+               let english = CyrillicMapper.convert(word),
+               CyrillicMapper.isValidEnglishWord(english) {
                 // Suppress the original Space/Enter so it doesn't arrive
                 // before our backspaces. We re‑post it after the replacement.
                 replaceLastWord(charCount: word.count,

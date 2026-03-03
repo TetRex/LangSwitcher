@@ -1,4 +1,4 @@
-import Foundation
+import AppKit
 
 /// Maps Russian (Cyrillic) characters typed on an English QWERTY keyboard
 /// back to the corresponding English characters.
@@ -44,5 +44,36 @@ enum CyrillicMapper {
             result.append(mapped)
         }
         return result
+    }
+
+    /// Returns `true` when the word is a valid Russian word according to
+    /// the macOS spell checker.
+    static func isValidRussianWord(_ word: String) -> Bool {
+        let checker = NSSpellChecker.shared
+        let range = checker.checkSpelling(
+            of: word,
+            startingAt: 0,
+            language: "ru",
+            wrap: false,
+            inSpellDocumentWithTag: 0,
+            wordCount: nil
+        )
+        // If no misspelling is found, the word is valid Russian.
+        return range.location == NSNotFound
+    }
+
+    /// Returns `true` when the word is a valid English word according to
+    /// the macOS spell checker.
+    static func isValidEnglishWord(_ word: String) -> Bool {
+        let checker = NSSpellChecker.shared
+        let range = checker.checkSpelling(
+            of: word,
+            startingAt: 0,
+            language: "en",
+            wrap: false,
+            inSpellDocumentWithTag: 0,
+            wordCount: nil
+        )
+        return range.location == NSNotFound
     }
 }
