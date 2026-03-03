@@ -105,6 +105,12 @@ final class KeyboardInterceptor {
             return Unmanaged.passUnretained(event)
         }
 
+        // Let system shortcuts through untouched (Cmd, Ctrl, Option combos).
+        let modifiers = event.flags.intersection([.maskCommand, .maskControl, .maskAlternate])
+        if !modifiers.isEmpty {
+            return Unmanaged.passUnretained(event)
+        }
+
         let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
         let nsEvent = NSEvent(cgEvent: event)
         let chars = nsEvent?.characters ?? ""
