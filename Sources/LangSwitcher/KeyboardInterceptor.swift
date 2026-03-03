@@ -11,7 +11,6 @@ final class KeyboardInterceptor {
     private var eventTap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
     private var currentWord: String = ""       // characters of the word in‑progress
-    private var isSynthesizing: Bool = false   // true while we post replacement events
     var isEnabled: Bool = true
 
     // MARK: - Lifecycle
@@ -100,11 +99,6 @@ final class KeyboardInterceptor {
             return Unmanaged.passUnretained(event)
         }
 
-        // Ignore events we posted ourselves (backspaces + replacement chars).
-        if isSynthesizing {
-            return Unmanaged.passUnretained(event)
-        }
-
         // Let system shortcuts through untouched (Cmd, Ctrl, Option combos).
         let modifiers = event.flags.intersection([.maskCommand, .maskControl, .maskAlternate])
         if !modifiers.isEmpty {
@@ -136,6 +130,7 @@ final class KeyboardInterceptor {
                 replaceLastWord(charCount: word.count,
                                 replacement: english,
                                 trailingEvent: event)
+                switchToEnglishLayout()
                 return nil   // eat the original event
             }
             return Unmanaged.passUnretained(event)
@@ -157,48 +152,38 @@ final class KeyboardInterceptor {
 
     // MARK: - Replace typed word
 
-    /// Deletes `charCount` characters backwards, types `replacement`,
-    /// then re‑posts the trailing Space / Enter event.
+    /// Selects the Cyrillic word, then types the full replacement + trailing
+    /// character as a single Unicode event — effectively an atomic swap that
+    /// appears instant to the user.
     private func replaceLastWord(charCount: Int,
                                   replacement: String,
                                   trailingEvent: CGEvent) {
 
-        isSynthesizing = true
+        // Disable the tap so our synthetic events don't re‑enter handleKeyDown.
+        if let tap = eventTap {
+            CGEvent.tapEnable(tap: tap, enable: false)
+        }
+
         let src = CGEventSource(stateID: .combinedSessionState)
 
-        // 1. Send Backspace × charCount to erase the Cyrillic word.
+        // 1. Select the Cyrillic word: Shift + Left Arrow × charCount.
+        //    Selection is visually less disruptive than character‑by‑character
+        //    backspacing and takes effect in a single frame in most apps.
         for _ in 0..<charCount {
-            if let down = CGEvent(keyboardEventSource: src,
-                                   virtualKey: CGKeyCode(kVK_Delete),
-                                   keyDown: true),
-               let up = CGEvent(keyboardEventSource: src,
-                                 virtualKey: CGKeyCode(kVK_Delete),
-                                 keyDown: false) {
-                down.post(tap: .cgSessionEventTap)
-                up.post(tap: .cgSessionEventTap)
-            }
+            postKey(CGKeyCode(kVK_LeftArrow), flags: .maskShift, source: src)
         }
 
-        // 2. Type the English replacement using Unicode key events.
-        for ch in replacement {
-            typeCharacter(ch, source: src)
-        }
+        // 2. Type the full replacement + trailing Space/Enter as ONE event.
+        //    The selected text is replaced atomically by the typed string.
+        let trailingKeyCode = trailingEvent.getIntegerValueField(.keyboardEventKeycode)
+        let trailing: String = trailingKeyCode == Int64(kVK_Return) ? "\n" : " "
+        let fullText = replacement + trailing
+        let utf16 = Array(fullText.utf16)
 
-        // 3. Re‑post the original Space / Enter after the replacement.
-        trailingEvent.post(tap: .cgSessionEventTap)
-
-        isSynthesizing = false
-    }
-
-    /// Posts a keyboard event for a single Unicode character.
-    private func typeCharacter(_ ch: Character, source: CGEventSource?) {
-        let utf16 = Array(String(ch).utf16)
-        if let down = CGEvent(keyboardEventSource: source,
-                               virtualKey: 0,
-                               keyDown: true),
-           let up = CGEvent(keyboardEventSource: source,
-                             virtualKey: 0,
-                             keyDown: false) {
+        if let down = CGEvent(keyboardEventSource: src,
+                               virtualKey: 0, keyDown: true),
+           let up = CGEvent(keyboardEventSource: src,
+                             virtualKey: 0, keyDown: false) {
             down.keyboardSetUnicodeString(stringLength: utf16.count,
                                           unicodeString: utf16)
             up.keyboardSetUnicodeString(stringLength: utf16.count,
@@ -206,9 +191,55 @@ final class KeyboardInterceptor {
             down.post(tap: .cgSessionEventTap)
             up.post(tap: .cgSessionEventTap)
         }
+
+        // 3. Re‑enable the tap.
+        if let tap = eventTap {
+            CGEvent.tapEnable(tap: tap, enable: true)
+        }
+    }
+
+    /// Posts a single key press (down + up) with the given modifier flags.
+    private func postKey(_ keyCode: CGKeyCode,
+                          flags: CGEventFlags,
+                          source: CGEventSource?) {
+        if let down = CGEvent(keyboardEventSource: source,
+                               virtualKey: keyCode, keyDown: true),
+           let up = CGEvent(keyboardEventSource: source,
+                             virtualKey: keyCode, keyDown: false) {
+            down.flags = flags
+            up.flags = flags
+            down.post(tap: .cgSessionEventTap)
+            up.post(tap: .cgSessionEventTap)
+        }
     }
 
     // MARK: - Helpers
+
+    /// Switches the active keyboard layout to the first English (ABC/US) input source.
+    private func switchToEnglishLayout() {
+        let criteria = [
+            kTISPropertyInputSourceCategory: kTISCategoryKeyboardInputSource as Any,
+            kTISPropertyInputSourceIsEnabled: kCFBooleanTrue!,
+            kTISPropertyInputSourceIsSelectCapable: kCFBooleanTrue!,
+        ] as CFDictionary
+
+        guard let sources = TISCreateInputSourceList(criteria, false)?
+                .takeRetainedValue() as? [TISInputSource] else { return }
+
+        for source in sources {
+            guard let idPtr = TISGetInputSourceProperty(source, kTISPropertyInputSourceID) else {
+                continue
+            }
+            let sourceID = Unmanaged<CFString>.fromOpaque(idPtr).takeUnretainedValue() as String
+            // Match common English layouts: US, ABC, British, etc.
+            if sourceID.contains("com.apple.keylayout.US")
+                || sourceID.contains("com.apple.keylayout.ABC")
+                || sourceID.contains("com.apple.keylayout.British") {
+                TISSelectInputSource(source)
+                return
+            }
+        }
+    }
 
     /// Returns `true` for key codes that don't produce printable characters.
     private func isNonCharacterKey(_ keyCode: Int64) -> Bool {
