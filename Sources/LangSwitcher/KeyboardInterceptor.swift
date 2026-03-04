@@ -11,6 +11,8 @@ final class KeyboardInterceptor {
     private var eventTap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
     private var currentWord: String = ""       // characters of the word in‑progress
+    private var lastTabTime: CFAbsoluteTime = 0  // timestamp of the last Tab press
+    private let doubleTapInterval: CFAbsoluteTime = 0.4 // max seconds between two Tabs
     var isEnabled: Bool = true
 
     // MARK: - Lifecycle
@@ -136,7 +138,28 @@ final class KeyboardInterceptor {
             return Unmanaged.passUnretained(event)
         }
 
-        // Escape, Tab, arrow keys, etc. — reset buffer and pass through
+        // Double‑Tab — force‑convert the current word (no spell‑check)
+        if keyCode == kVK_Tab {
+            let now = CFAbsoluteTimeGetCurrent()
+            if now - lastTabTime <= doubleTapInterval {
+                // Second Tab within the interval — trigger conversion
+                lastTabTime = 0
+                let word = currentWord
+                currentWord = ""
+                if CyrillicMapper.isCyrillic(word),
+                   let english = CyrillicMapper.convert(word) {
+                    replaceCurrentWord(charCount: word.count,
+                                       replacement: english)
+                    switchToEnglishLayout()
+                }
+                return nil   // eat the second Tab
+            } else {
+                lastTabTime = now
+                return Unmanaged.passUnretained(event)
+            }
+        }
+
+        // Escape, arrow keys, etc. — reset buffer and pass through
         if isNonCharacterKey(keyCode) {
             currentWord = ""
             return Unmanaged.passUnretained(event)
@@ -167,22 +190,50 @@ final class KeyboardInterceptor {
         let src = CGEventSource(stateID: .combinedSessionState)
 
         // 1. Select the Cyrillic word: Shift + Left Arrow × charCount.
-        //    Selection is visually less disruptive than character‑by‑character
-        //    backspacing and takes effect in a single frame in most apps.
         for _ in 0..<charCount {
             postKey(CGKeyCode(kVK_LeftArrow), flags: .maskShift, source: src)
         }
 
         // 2. Type the full replacement + trailing Space/Enter as ONE event.
-        //    The selected text is replaced atomically by the typed string.
         let trailingKeyCode = trailingEvent.getIntegerValueField(.keyboardEventKeycode)
         let trailing: String = trailingKeyCode == Int64(kVK_Return) ? "\n" : " "
-        let fullText = replacement + trailing
-        let utf16 = Array(fullText.utf16)
+        typeUnicodeString(replacement + trailing, source: src)
 
-        if let down = CGEvent(keyboardEventSource: src,
+        // 3. Re‑enable the tap.
+        if let tap = eventTap {
+            CGEvent.tapEnable(tap: tap, enable: true)
+        }
+    }
+
+    /// Selects `charCount` characters and replaces them with `replacement`
+    /// without appending a trailing character. Used by the double‑Tab trigger.
+    private func replaceCurrentWord(charCount: Int,
+                                     replacement: String) {
+
+        if let tap = eventTap {
+            CGEvent.tapEnable(tap: tap, enable: false)
+        }
+
+        let src = CGEventSource(stateID: .combinedSessionState)
+
+        // Also select the first Tab that was let through, so +1.
+        for _ in 0..<(charCount + 1) {
+            postKey(CGKeyCode(kVK_LeftArrow), flags: .maskShift, source: src)
+        }
+
+        typeUnicodeString(replacement, source: src)
+
+        if let tap = eventTap {
+            CGEvent.tapEnable(tap: tap, enable: true)
+        }
+    }
+
+    /// Posts a single Unicode string as one keyboard event pair (down + up).
+    private func typeUnicodeString(_ text: String, source: CGEventSource?) {
+        let utf16 = Array(text.utf16)
+        if let down = CGEvent(keyboardEventSource: source,
                                virtualKey: 0, keyDown: true),
-           let up = CGEvent(keyboardEventSource: src,
+           let up = CGEvent(keyboardEventSource: source,
                              virtualKey: 0, keyDown: false) {
             down.keyboardSetUnicodeString(stringLength: utf16.count,
                                           unicodeString: utf16)
@@ -190,11 +241,6 @@ final class KeyboardInterceptor {
                                         unicodeString: utf16)
             down.post(tap: .cgSessionEventTap)
             up.post(tap: .cgSessionEventTap)
-        }
-
-        // 3. Re‑enable the tap.
-        if let tap = eventTap {
-            CGEvent.tapEnable(tap: tap, enable: true)
         }
     }
 
@@ -244,7 +290,7 @@ final class KeyboardInterceptor {
     /// Returns `true` for key codes that don't produce printable characters.
     private func isNonCharacterKey(_ keyCode: Int64) -> Bool {
         let nonChar: Set<Int> = [
-            kVK_Escape, kVK_Tab,
+            kVK_Escape,
             kVK_LeftArrow, kVK_RightArrow, kVK_UpArrow, kVK_DownArrow,
             kVK_Home, kVK_End, kVK_PageUp, kVK_PageDown,
             kVK_F1, kVK_F2, kVK_F3, kVK_F4, kVK_F5, kVK_F6,
