@@ -7,6 +7,7 @@ final class MenuBarController {
     private let statusItem: NSStatusItem
     private let interceptor: KeyboardInterceptor
     private var toggleItem: NSMenuItem!
+    private var settingsController: SettingsWindowController?
 
     init() {
         interceptor = KeyboardInterceptor()
@@ -35,6 +36,12 @@ final class MenuBarController {
 
         menu.addItem(.separator())
 
+        let settings = NSMenuItem(title: "Settings…",
+                                  action: #selector(openSettings),
+                                  keyEquivalent: ",")
+        settings.target = self
+        menu.addItem(settings)
+
         let about = NSMenuItem(title: "About LangSwitch",
                                action: #selector(showAbout),
                                keyEquivalent: "")
@@ -58,6 +65,22 @@ final class MenuBarController {
         interceptor.isEnabled.toggle()
         toggleItem.state = interceptor.isEnabled ? .on : .off
         updateIcon()
+    }
+
+    @objc private func openSettings() {
+        if settingsController == nil {
+            settingsController = SettingsWindowController(
+                currentKeyCode: interceptor.forceConvertKeyCode,
+                currentModifiers: interceptor.forceConvertModifiers
+            )
+            settingsController?.onShortcutChanged = { [weak self] keyCode, modifiers in
+                self?.interceptor.forceConvertKeyCode = keyCode
+                self?.interceptor.forceConvertModifiers = modifiers
+            }
+        }
+        settingsController?.showWindow(nil)
+        settingsController?.window?.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
     }
 
     @objc private func showAbout() {

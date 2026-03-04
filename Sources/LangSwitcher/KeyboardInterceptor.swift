@@ -11,13 +11,19 @@ final class KeyboardInterceptor {
     private var eventTap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
     private var currentWord: String = ""       // characters of the word in‑progress
-    private var lastTabTime: CFAbsoluteTime = 0  // timestamp of the last Tab press
-    private let doubleTapInterval: CFAbsoluteTime = 0.4 // max seconds between two Tabs
+    private var lastShortcutTime: CFAbsoluteTime = 0  // for double‑tap mode
+    private let doubleTapInterval: CFAbsoluteTime = 0.4
     var isEnabled: Bool = true
+    /// Virtual key code for the force‑convert shortcut.
+    var forceConvertKeyCode: Int
+    /// Modifier flags (⌘⌥⌃⇧) for the shortcut. 0 = double‑tap mode.
+    var forceConvertModifiers: UInt64
 
     // MARK: - Lifecycle
 
     init() {
+        forceConvertKeyCode = SettingsWindowController.savedKeyCode()
+        forceConvertModifiers = SettingsWindowController.savedModifiers()
         startEventTap()
     }
 
@@ -101,13 +107,56 @@ final class KeyboardInterceptor {
             return Unmanaged.passUnretained(event)
         }
 
-        // Let system shortcuts through untouched (Cmd, Ctrl, Option combos).
-        let modifiers = event.flags.intersection([.maskCommand, .maskControl, .maskAlternate])
-        if !modifiers.isEmpty {
+        let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
+        let eventMods = SettingsWindowController.significantModifiers(UInt64(event.flags.rawValue))
+
+        // Check for the force‑convert shortcut FIRST (works with modifiers).
+        if keyCode == Int64(forceConvertKeyCode) {
+            let requiredMods = forceConvertModifiers
+            let hasModifiers = requiredMods != 0
+
+            if hasModifiers {
+                // Modifier‑based shortcut: single press triggers immediately.
+                if eventMods == requiredMods {
+                    let word = currentWord
+                    currentWord = ""
+                    if CyrillicMapper.isCyrillic(word),
+                       let english = CyrillicMapper.convert(word) {
+                        replaceCurrentWord(charCount: word.count,
+                                           replacement: english)
+                        switchToEnglishLayout()
+                    }
+                    return nil
+                }
+                // Modifiers don't match — fall through to normal handling.
+            } else {
+                // No‑modifier shortcut: double‑tap mode.
+                if eventMods == 0 {
+                    let now = CFAbsoluteTimeGetCurrent()
+                    if now - lastShortcutTime <= doubleTapInterval {
+                        lastShortcutTime = 0
+                        let word = currentWord
+                        currentWord = ""
+                        if CyrillicMapper.isCyrillic(word),
+                           let english = CyrillicMapper.convert(word) {
+                            replaceCurrentWord(charCount: word.count,
+                                               replacement: english)
+                            switchToEnglishLayout()
+                        }
+                        return nil
+                    } else {
+                        lastShortcutTime = now
+                        return Unmanaged.passUnretained(event)
+                    }
+                }
+            }
+        }
+
+        // Let other modifier combos (Cmd+C, etc.) pass through untouched.
+        if eventMods != 0 {
             return Unmanaged.passUnretained(event)
         }
 
-        let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
         let nsEvent = NSEvent(cgEvent: event)
         let chars = nsEvent?.characters ?? ""
 
@@ -127,36 +176,13 @@ final class KeyboardInterceptor {
                !CyrillicMapper.isValidRussianWord(word),
                let english = CyrillicMapper.convert(word),
                CyrillicMapper.isValidEnglishWord(english) {
-                // Suppress the original Space/Enter so it doesn't arrive
-                // before our backspaces. We re‑post it after the replacement.
                 replaceLastWord(charCount: word.count,
                                 replacement: english,
                                 trailingEvent: event)
                 switchToEnglishLayout()
-                return nil   // eat the original event
+                return nil
             }
             return Unmanaged.passUnretained(event)
-        }
-
-        // Double‑Tab — force‑convert the current word (no spell‑check)
-        if keyCode == kVK_Tab {
-            let now = CFAbsoluteTimeGetCurrent()
-            if now - lastTabTime <= doubleTapInterval {
-                // Second Tab within the interval — trigger conversion
-                lastTabTime = 0
-                let word = currentWord
-                currentWord = ""
-                if CyrillicMapper.isCyrillic(word),
-                   let english = CyrillicMapper.convert(word) {
-                    replaceCurrentWord(charCount: word.count,
-                                       replacement: english)
-                    switchToEnglishLayout()
-                }
-                return nil   // eat the second Tab
-            } else {
-                lastTabTime = now
-                return Unmanaged.passUnretained(event)
-            }
         }
 
         // Escape, arrow keys, etc. — reset buffer and pass through

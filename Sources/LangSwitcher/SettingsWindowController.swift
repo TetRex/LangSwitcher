@@ -2,36 +2,39 @@ import AppKit
 import Carbon.HIToolbox
 
 /// A settings window that lets the user configure the force‑convert shortcut.
+/// Supports any key with optional modifiers (⌘, ⌥, ⌃, ⇧).
 @MainActor
 final class SettingsWindowController: NSWindowController {
 
     // MARK: - Defaults keys
 
-    private static let shortcutKeyCodeKey = "ForceConvertKeyCode"
-    private static let shortcutKeyNameKey = "ForceConvertKeyName"
+    private static let shortcutKeyCodeKey   = "ForceConvertKeyCode"
+    private static let shortcutModifiersKey = "ForceConvertModifiers"
 
     // MARK: - UI
 
     private let shortcutField = NSTextField()
     private let instructionLabel = NSTextField(labelWithString: "")
+    private let modeLabel = NSTextField(labelWithString: "")
     private var isRecording = false
+    private var localMonitor: Any?
 
-    /// Called when the user picks a new shortcut key.
-    var onShortcutChanged: ((_ keyCode: Int, _ keyName: String) -> Void)?
+    /// Called when the user picks a new shortcut.
+    var onShortcutChanged: ((_ keyCode: Int, _ modifiers: UInt64) -> Void)?
 
     // MARK: - Current value
 
     private var currentKeyCode: Int
-    private var currentKeyName: String
+    private var currentModifiers: UInt64   // raw CGEventFlags bits for ⌘⌥⌃⇧
 
     // MARK: - Init
 
-    init(currentKeyCode: Int, currentKeyName: String) {
+    init(currentKeyCode: Int, currentModifiers: UInt64) {
         self.currentKeyCode = currentKeyCode
-        self.currentKeyName = currentKeyName
+        self.currentModifiers = currentModifiers
 
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 380, height: 160),
+            contentRect: NSRect(x: 0, y: 0, width: 400, height: 180),
             styleMask: [.titled, .closable],
             backing: .buffered,
             defer: false
@@ -53,7 +56,7 @@ final class SettingsWindowController: NSWindowController {
     private func buildUI() {
         guard let contentView = window?.contentView else { return }
 
-        let titleLabel = NSTextField(labelWithString: "Force‑convert shortcut (double‑tap):")
+        let titleLabel = NSTextField(labelWithString: "Force‑convert shortcut:")
         titleLabel.font = .systemFont(ofSize: 13, weight: .medium)
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(titleLabel)
@@ -67,7 +70,6 @@ final class SettingsWindowController: NSWindowController {
         shortcutField.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(shortcutField)
 
-        // Click on the field starts recording
         let click = NSClickGestureRecognizer(target: self, action: #selector(startRecording))
         shortcutField.addGestureRecognizer(click)
 
@@ -76,9 +78,10 @@ final class SettingsWindowController: NSWindowController {
         instructionLabel.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(instructionLabel)
 
-        let resetButton = NSButton(title: "Reset to Tab", target: self, action: #selector(resetToDefault))
-        resetButton.translatesAutoresizingMaskIntoConstraints = false
-        contentView.addSubview(resetButton)
+        modeLabel.font = .systemFont(ofSize: 11)
+        modeLabel.textColor = .tertiaryLabelColor
+        modeLabel.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(modeLabel)
 
         NSLayoutConstraint.activate([
             titleLabel.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 20),
@@ -86,83 +89,112 @@ final class SettingsWindowController: NSWindowController {
 
             shortcutField.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 10),
             shortcutField.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
-            shortcutField.widthAnchor.constraint(equalToConstant: 200),
+            shortcutField.widthAnchor.constraint(equalToConstant: 220),
             shortcutField.heightAnchor.constraint(equalToConstant: 28),
-
-            resetButton.centerYAnchor.constraint(equalTo: shortcutField.centerYAnchor),
-            resetButton.leadingAnchor.constraint(equalTo: shortcutField.trailingAnchor, constant: 12),
-            resetButton.trailingAnchor.constraint(lessThanOrEqualTo: contentView.trailingAnchor, constant: -20),
 
             instructionLabel.topAnchor.constraint(equalTo: shortcutField.bottomAnchor, constant: 8),
             instructionLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
             instructionLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
+
+            modeLabel.topAnchor.constraint(equalTo: instructionLabel.bottomAnchor, constant: 4),
+            modeLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
+            modeLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
         ])
     }
 
     // MARK: - Display
 
     private func updateFieldDisplay() {
-        shortcutField.stringValue = currentKeyName
-        instructionLabel.stringValue = "Click the field, then press a key to set a new shortcut."
+        shortcutField.stringValue = Self.displayName(keyCode: currentKeyCode,
+                                                      modifiers: currentModifiers)
+        instructionLabel.stringValue = "Click the field, then press your shortcut."
+
+        let hasModifiers = Self.significantModifiers(currentModifiers) != 0
+        modeLabel.stringValue = hasModifiers
+            ? "Mode: single press"
+            : "Mode: double‑tap"
     }
 
     // MARK: - Recording
 
     @objc private func startRecording() {
         isRecording = true
-        shortcutField.stringValue = "Press a key…"
-        instructionLabel.stringValue = "Press Escape to cancel."
-        // Use a local event monitor to capture the next key press.
-        NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+        shortcutField.stringValue = "Press shortcut…"
+        instructionLabel.stringValue = "Press Escape to cancel. Hold modifiers + key."
+
+        // Remove any prior monitor
+        if let m = localMonitor { NSEvent.removeMonitor(m); localMonitor = nil }
+
+        localMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             guard let self, self.isRecording else { return event }
             self.isRecording = false
 
-            if event.keyCode == UInt16(kVK_Escape) {
-                // Cancel — restore display
+            if event.keyCode == UInt16(kVK_Escape),
+               event.modifierFlags.intersection(.deviceIndependentFlagsMask).isEmpty {
                 self.updateFieldDisplay()
+                if let m = self.localMonitor { NSEvent.removeMonitor(m); self.localMonitor = nil }
                 return nil
             }
 
             let keyCode = Int(event.keyCode)
-            let keyName = Self.nameForKeyCode(keyCode)
+            let mods = Self.significantModifiers(UInt64(event.modifierFlags.rawValue))
             self.currentKeyCode = keyCode
-            self.currentKeyName = keyName
+            self.currentModifiers = mods
             self.updateFieldDisplay()
 
             // Persist
             UserDefaults.standard.set(keyCode, forKey: Self.shortcutKeyCodeKey)
-            UserDefaults.standard.set(keyName, forKey: Self.shortcutKeyNameKey)
+            UserDefaults.standard.set(Int64(bitPattern: mods), forKey: Self.shortcutModifiersKey)
 
-            self.onShortcutChanged?(keyCode, keyName)
-            return nil  // eat the event
+            self.onShortcutChanged?(keyCode, mods)
+
+            if let m = self.localMonitor { NSEvent.removeMonitor(m); self.localMonitor = nil }
+            return nil
         }
-    }
-
-    @objc private func resetToDefault() {
-        let keyCode = kVK_Tab
-        let keyName = "Tab"
-        currentKeyCode = keyCode
-        currentKeyName = keyName
-        updateFieldDisplay()
-
-        UserDefaults.standard.set(keyCode, forKey: Self.shortcutKeyCodeKey)
-        UserDefaults.standard.set(keyName, forKey: Self.shortcutKeyNameKey)
-
-        onShortcutChanged?(keyCode, keyName)
     }
 
     // MARK: - Persistence helpers
 
-    /// Loads the saved shortcut key code, defaulting to Tab.
     static func savedKeyCode() -> Int {
         let val = UserDefaults.standard.integer(forKey: shortcutKeyCodeKey)
-        return val == 0 ? kVK_Tab : val
+        return val == 0 ? kVK_ANSI_T : val
     }
 
-    /// Loads the saved shortcut key name, defaulting to "Tab".
-    static func savedKeyName() -> String {
-        let val = UserDefaults.standard.string(forKey: shortcutKeyNameKey)
-        return val ?? "Tab"
+    static func savedModifiers() -> UInt64 {
+        if let val = UserDefaults.standard.object(forKey: shortcutModifiersKey) as? Int64 {
+            return UInt64(bitPattern: val)
+        }
+        if let val = UserDefaults.standard.object(forKey: shortcutModifiersKey) as? Int {
+            return UInt64(val)
+        }
+        return CGEventFlags.maskAlternate.rawValue   // default: ⌥
+    }
+
+    // MARK: - Modifier helpers
+
+    /// Keeps only ⌘ ⌥ ⌃ ⇧ bits.
+    static func significantModifiers(_ raw: UInt64) -> UInt64 {
+        let mask: UInt64 = CGEventFlags.maskCommand.rawValue
+                       | CGEventFlags.maskAlternate.rawValue
+                       | CGEventFlags.maskControl.rawValue
+                       | CGEventFlags.maskShift.rawValue
+        return raw & mask
+    }
+
+    /// Human‑readable name like "⌥T" or "⌘⇧K" or "Tab (×2)".
+    static func displayName(keyCode: Int, modifiers: UInt64) -> String {
+        var parts: [String] = []
+        if modifiers & CGEventFlags.maskControl.rawValue  != 0 { parts.append("⌃") }
+        if modifiers & CGEventFlags.maskAlternate.rawValue != 0 { parts.append("⌥") }
+        if modifiers & CGEventFlags.maskShift.rawValue     != 0 { parts.append("⇧") }
+        if modifiers & CGEventFlags.maskCommand.rawValue   != 0 { parts.append("⌘") }
+
+        let keyName = nameForKeyCode(keyCode)
+
+        if parts.isEmpty {
+            return "\(keyName) (×2)"
+        }
+        return parts.joined() + keyName
     }
 
     // MARK: - Key name mapping
