@@ -9,7 +9,10 @@ let package = Package(
         .executableTarget(
             name: "LangSwitcher",
             path: "Sources/LangSwitcher",
-            exclude: ["Info.plist"],
+            exclude: ["Info.plist", "AppIcon.icns"],
+            resources: [
+                .copy("AppIcon.icns")
+            ],
             linkerSettings: [
                 .unsafeFlags([
                     "-Xlinker", "-sectcreate",

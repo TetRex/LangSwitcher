@@ -5,6 +5,10 @@
 <dict>
     <key>LSUIElement</key>
     <true/>
+    <key>CFBundleIconFile</key>
+    <string>AppIcon</string>
+    <key>CFBundleExecutable</key>
+    <string>LangSwitch</string>
     <key>CFBundleName</key>
     <string>LangSwitch</string>
     <key>CFBundleIdentifier</key>
