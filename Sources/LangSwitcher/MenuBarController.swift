@@ -111,7 +111,7 @@ final class MenuBarController {
 
     @objc private func showAbout() {
         let alert = NSAlert()
-        alert.messageText = "LangSwitch 0.0.1"
+        alert.messageText = "LangSwitch 0.0.2"
         alert.informativeText = """
             Automatically converts Russian (Cyrillic) text typed \
             on an English QWERTY keyboard back to English.
