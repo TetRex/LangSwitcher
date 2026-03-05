@@ -8,6 +8,7 @@ final class MenuBarController {
     private let interceptor: KeyboardInterceptor
     private var toggleItem: NSMenuItem!
     private var settingsController: SettingsWindowController?
+    private var welcomeController: WelcomeWindowController?
 
     init() {
         interceptor = KeyboardInterceptor()
@@ -20,6 +21,11 @@ final class MenuBarController {
 
         buildMenu()
         updateIcon()
+
+        // Show the welcome window on first launch.
+        if !WelcomeWindowController.hasSeenWelcome {
+            showWelcome()
+        }
     }
 
     // MARK: - Menu
@@ -41,6 +47,12 @@ final class MenuBarController {
                                   keyEquivalent: ",")
         settings.target = self
         menu.addItem(settings)
+
+        let help = NSMenuItem(title: "How to Use…",
+                              action: #selector(openWelcome),
+                              keyEquivalent: "")
+        help.target = self
+        menu.addItem(help)
 
         let about = NSMenuItem(title: "About LangSwitch",
                                action: #selector(showAbout),
@@ -93,6 +105,10 @@ final class MenuBarController {
         NSApp.activate(ignoringOtherApps: true)
     }
 
+    @objc private func openWelcome() {
+        showWelcome()
+    }
+
     @objc private func showAbout() {
         let alert = NSAlert()
         alert.messageText = "LangSwitch 0.0.1"
@@ -106,6 +122,24 @@ final class MenuBarController {
 
     @objc private func quitApp() {
         NSApp.terminate(nil)
+    }
+
+    private func showWelcome() {
+        if welcomeController == nil {
+            welcomeController = WelcomeWindowController()
+            NotificationCenter.default.addObserver(
+                forName: NSWindow.willCloseNotification,
+                object: welcomeController?.window,
+                queue: .main
+            ) { [weak self] _ in
+                MainActor.assumeIsolated {
+                    self?.welcomeController = nil
+                }
+            }
+        }
+        welcomeController?.showWindow(nil)
+        welcomeController?.window?.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
     }
 
     // MARK: - Helpers
