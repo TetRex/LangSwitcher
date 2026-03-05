@@ -22,8 +22,8 @@ final class MenuBarController {
         buildMenu()
         updateIcon()
 
-        // Show the welcome window on first launch.
-        if !WelcomeWindowController.hasSeenWelcome {
+        // Show the welcome window when Accessibility permission is not granted.
+        if !WelcomeWindowController.isAccessibilityGranted {
             showWelcome()
         }
     }

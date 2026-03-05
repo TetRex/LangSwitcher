@@ -5,15 +5,10 @@ import AppKit
 @MainActor
 final class WelcomeWindowController: NSWindowController {
 
-    private static let hasSeenWelcomeKey = "HasSeenWelcome"
-
-    /// Returns `true` if the welcome window has already been shown once.
-    static var hasSeenWelcome: Bool {
-        UserDefaults.standard.bool(forKey: hasSeenWelcomeKey)
+    /// Returns `true` when the app already has Accessibility permission.
+    static var isAccessibilityGranted: Bool {
+        AXIsProcessTrusted()
     }
-
-    /// Callback fired when the user clicks "Grant Access".
-    var onRequestAccessibility: (() -> Void)?
 
     // MARK: - Init
 
@@ -184,7 +179,6 @@ final class WelcomeWindowController: NSWindowController {
     }
 
     @objc private func dismissWelcome() {
-        UserDefaults.standard.set(true, forKey: Self.hasSeenWelcomeKey)
         window?.close()
     }
 }
