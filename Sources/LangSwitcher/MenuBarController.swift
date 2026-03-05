@@ -77,6 +77,16 @@ final class MenuBarController {
                 self?.interceptor.forceConvertKeyCode = keyCode
                 self?.interceptor.forceConvertModifiers = modifiers
             }
+            // Release the controller when the window is closed to free memory.
+            NotificationCenter.default.addObserver(
+                forName: NSWindow.willCloseNotification,
+                object: settingsController?.window,
+                queue: .main
+            ) { [weak self] _ in
+                MainActor.assumeIsolated {
+                    self?.settingsController = nil
+                }
+            }
         }
         settingsController?.showWindow(nil)
         settingsController?.window?.makeKeyAndOrderFront(nil)

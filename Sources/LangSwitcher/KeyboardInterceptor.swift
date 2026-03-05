@@ -11,6 +11,7 @@ final class KeyboardInterceptor {
     private var eventTap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
     private var currentWord: String = ""       // characters of the word in‑progress
+    private static let maxWordLength = 80       // cap buffer to prevent unbounded growth
     private var lastShortcutTime: CFAbsoluteTime = 0  // for double‑tap mode
     private let doubleTapInterval: CFAbsoluteTime = 0.4
     var isEnabled: Bool = true
@@ -191,9 +192,14 @@ final class KeyboardInterceptor {
             return Unmanaged.passUnretained(event)
         }
 
-        // Ordinary character — append to buffer
+        // Ordinary character — append to buffer (capped to limit memory)
         if !chars.isEmpty {
-            currentWord.append(chars)
+            if currentWord.count < Self.maxWordLength {
+                currentWord.append(chars)
+            } else {
+                // Word is unreasonably long — reset to avoid unbounded growth.
+                currentWord = String(chars)
+            }
         }
 
         return Unmanaged.passUnretained(event)
@@ -287,15 +293,16 @@ final class KeyboardInterceptor {
 
     // MARK: - Helpers
 
+    /// Criteria dictionary for finding keyboard input sources (allocated once).
+    private static let inputSourceCriteria: CFDictionary = [
+        kTISPropertyInputSourceCategory: kTISCategoryKeyboardInputSource as Any,
+        kTISPropertyInputSourceIsEnabled: kCFBooleanTrue!,
+        kTISPropertyInputSourceIsSelectCapable: kCFBooleanTrue!,
+    ] as CFDictionary
+
     /// Switches the active keyboard layout to the first English (ABC/US) input source.
     private func switchToEnglishLayout() {
-        let criteria = [
-            kTISPropertyInputSourceCategory: kTISCategoryKeyboardInputSource as Any,
-            kTISPropertyInputSourceIsEnabled: kCFBooleanTrue!,
-            kTISPropertyInputSourceIsSelectCapable: kCFBooleanTrue!,
-        ] as CFDictionary
-
-        guard let sources = TISCreateInputSourceList(criteria, false)?
+        guard let sources = TISCreateInputSourceList(Self.inputSourceCriteria, false)?
                 .takeRetainedValue() as? [TISInputSource] else { return }
 
         for source in sources {
@@ -313,20 +320,22 @@ final class KeyboardInterceptor {
         }
     }
 
+    /// Key codes that don't produce printable characters (allocated once).
+    private static let nonCharKeys: Set<Int> = [
+        kVK_Escape,
+        kVK_LeftArrow, kVK_RightArrow, kVK_UpArrow, kVK_DownArrow,
+        kVK_Home, kVK_End, kVK_PageUp, kVK_PageDown,
+        kVK_F1, kVK_F2, kVK_F3, kVK_F4, kVK_F5, kVK_F6,
+        kVK_F7, kVK_F8, kVK_F9, kVK_F10, kVK_F11, kVK_F12,
+        kVK_ForwardDelete,
+        kVK_Command, kVK_Shift, kVK_Option, kVK_Control,
+        kVK_RightCommand, kVK_RightShift, kVK_RightOption, kVK_RightControl,
+        kVK_CapsLock, kVK_Function,
+    ]
+
     /// Returns `true` for key codes that don't produce printable characters.
     private func isNonCharacterKey(_ keyCode: Int64) -> Bool {
-        let nonChar: Set<Int> = [
-            kVK_Escape,
-            kVK_LeftArrow, kVK_RightArrow, kVK_UpArrow, kVK_DownArrow,
-            kVK_Home, kVK_End, kVK_PageUp, kVK_PageDown,
-            kVK_F1, kVK_F2, kVK_F3, kVK_F4, kVK_F5, kVK_F6,
-            kVK_F7, kVK_F8, kVK_F9, kVK_F10, kVK_F11, kVK_F12,
-            kVK_ForwardDelete,
-            kVK_Command, kVK_Shift, kVK_Option, kVK_Control,
-            kVK_RightCommand, kVK_RightShift, kVK_RightOption, kVK_RightControl,
-            kVK_CapsLock, kVK_Function,
-        ]
-        return nonChar.contains(Int(keyCode))
+        Self.nonCharKeys.contains(Int(keyCode))
     }
 
     // MARK: - Accessibility prompt
