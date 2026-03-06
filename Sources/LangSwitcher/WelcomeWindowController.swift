@@ -1,7 +1,8 @@
 import AppKit
+import Carbon.HIToolbox
 
-/// A welcome window shown on first launch with usage instructions,
-/// shortcut info, and accessibility permission guidance.
+/// A minimal first-run setup window that lets users pick a shortcut,
+/// grant Accessibility access, and start using the app.
 @MainActor
 final class WelcomeWindowController: NSWindowController {
 
@@ -10,21 +11,35 @@ final class WelcomeWindowController: NSWindowController {
         AXIsProcessTrusted()
     }
 
+    /// Called when the user picks a new shortcut.
+    var onShortcutChanged: ((_ keyCode: Int, _ modifiers: UInt64) -> Void)?
+
+    private let shortcutField = NSTextField()
+    private var isRecording = false
+    private var localMonitor: Any?
+
+    private var currentKeyCode: Int
+    private var currentModifiers: UInt64
+
     // MARK: - Init
 
-    init() {
+    init(currentKeyCode: Int, currentModifiers: UInt64) {
+        self.currentKeyCode = currentKeyCode
+        self.currentModifiers = currentModifiers
+
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 520, height: 480),
+            contentRect: NSRect(x: 0, y: 0, width: 460, height: 260),
             styleMask: [.titled, .closable],
             backing: .buffered,
             defer: false
         )
-        window.title = "Welcome to LangSwitcher"
+        window.title = "LangSwitcher"
         window.center()
         window.isReleasedWhenClosed = false
 
         super.init(window: window)
         buildUI()
+        updateShortcutDisplay()
     }
 
     @available(*, unavailable)
@@ -35,137 +50,108 @@ final class WelcomeWindowController: NSWindowController {
     private func buildUI() {
         guard let contentView = window?.contentView else { return }
 
-        let scrollView = NSScrollView()
-        scrollView.translatesAutoresizingMaskIntoConstraints = false
-        scrollView.hasVerticalScroller = true
-        scrollView.borderType = .noBorder
-        scrollView.drawsBackground = false
-        contentView.addSubview(scrollView)
+        let shortcutLabel = NSTextField(labelWithString: "Shortcut")
+        shortcutLabel.font = .systemFont(ofSize: 13, weight: .semibold)
+        shortcutLabel.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(shortcutLabel)
 
-        let textView = NSTextView()
-        textView.isEditable = false
-        textView.isSelectable = true
-        textView.drawsBackground = false
-        textView.textContainerInset = NSSize(width: 16, height: 16)
-        textView.isVerticallyResizable = true
-        textView.isHorizontallyResizable = false
-        textView.autoresizingMask = [.width]
-        textView.textContainer?.widthTracksTextView = true
+        shortcutField.isEditable = false
+        shortcutField.isSelectable = false
+        shortcutField.alignment = .center
+        shortcutField.font = .monospacedSystemFont(ofSize: 18, weight: .medium)
+        shortcutField.isBezeled = true
+        shortcutField.bezelStyle = .roundedBezel
+        shortcutField.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(shortcutField)
 
-        scrollView.documentView = textView
+        let click = NSClickGestureRecognizer(target: self, action: #selector(startRecordingShortcut))
+        shortcutField.addGestureRecognizer(click)
 
-        // --- Buttons ---
-        let grantButton = NSButton(title: "Grant Accessibility Access…",
+        let grantButton = NSButton(title: "Grant Access",
                                    target: self,
                                    action: #selector(grantAccessibility))
-        grantButton.bezelStyle = .rounded
+        grantButton.bezelStyle = .recessed
         grantButton.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(grantButton)
 
-        let closeButton = NSButton(title: "Get Started",
+        let startButton = NSButton(title: "Start",
                                    target: self,
                                    action: #selector(dismissWelcome))
-        closeButton.bezelStyle = .rounded
-        closeButton.keyEquivalent = "\r"
-        closeButton.translatesAutoresizingMaskIntoConstraints = false
-        contentView.addSubview(closeButton)
+        startButton.bezelStyle = .regularSquare
+        startButton.font = .systemFont(ofSize: 22, weight: .bold)
+        startButton.keyEquivalent = "\r"
+        startButton.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(startButton)
 
         NSLayoutConstraint.activate([
-            scrollView.topAnchor.constraint(equalTo: contentView.topAnchor),
-            scrollView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
-            scrollView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
-            scrollView.bottomAnchor.constraint(equalTo: grantButton.topAnchor, constant: -12),
+            shortcutLabel.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 22),
+            shortcutLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
 
+            shortcutField.topAnchor.constraint(equalTo: shortcutLabel.bottomAnchor, constant: 10),
+            shortcutField.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
+            shortcutField.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
+            shortcutField.heightAnchor.constraint(equalToConstant: 46),
+
+            grantButton.topAnchor.constraint(equalTo: shortcutField.bottomAnchor, constant: 18),
             grantButton.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
-            grantButton.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -16),
 
-            closeButton.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
-            closeButton.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -16),
+            startButton.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
+            startButton.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -20),
+            startButton.widthAnchor.constraint(equalToConstant: 180),
+            startButton.heightAnchor.constraint(equalToConstant: 60),
         ])
-
-        // --- Populate rich text ---
-        textView.textStorage?.setAttributedString(buildAttributedContent())
     }
 
-    // MARK: - Content
+    private func updateShortcutDisplay() {
+        shortcutField.stringValue = SettingsWindowController.displayName(
+            keyCode: currentKeyCode,
+            modifiers: currentModifiers
+        )
+    }
 
-    private func buildAttributedContent() -> NSAttributedString {
-        let result = NSMutableAttributedString()
+    // MARK: - Shortcut recording
 
-        let titleFont = NSFont.systemFont(ofSize: 20, weight: .bold)
-        let headingFont = NSFont.systemFont(ofSize: 14, weight: .semibold)
-        let bodyFont = NSFont.systemFont(ofSize: 13, weight: .regular)
+    @objc private func startRecordingShortcut() {
+        isRecording = true
+        shortcutField.stringValue = "Press shortcut..."
 
-        let titleColor = NSColor.labelColor
-        let headingColor = NSColor.labelColor
-        let bodyColor = NSColor.secondaryLabelColor
-
-        func append(_ text: String, font: NSFont, color: NSColor, spacing: CGFloat = 4) {
-            let para = NSMutableParagraphStyle()
-            para.paragraphSpacing = spacing
-            result.append(NSAttributedString(string: text, attributes: [
-                .font: font,
-                .foregroundColor: color,
-                .paragraphStyle: para,
-            ]))
+        if let m = localMonitor {
+            NSEvent.removeMonitor(m)
+            localMonitor = nil
         }
 
-        // Title
-        append("Welcome to LangSwitcher ⌨️\n\n", font: titleFont, color: titleColor, spacing: 8)
+        localMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            guard let self, self.isRecording else { return event }
+            self.isRecording = false
 
-        // --- What it does ---
-        append("What does it do?\n", font: headingFont, color: headingColor, spacing: 6)
-        append("""
-        LangSwitcher watches your keyboard input and automatically \
-        fixes words you accidentally type in a Cyrillic layout \
-        when you meant to type in English.\n\
-        When you press Space or Enter and the typed word is Cyrillic but \
-        not a valid word in any supported Cyrillic language (Russian, Ukrainian, \
-        Belarusian, Bulgarian, Serbian, Macedonian) — and the QWERTY equivalent \
-        is a valid English word — it swaps the text and switches your layout \
-        to English.\n\n
-        """, font: bodyFont, color: bodyColor)
+            if event.keyCode == UInt16(kVK_Escape),
+               event.modifierFlags.intersection(.deviceIndependentFlagsMask).isEmpty {
+                self.updateShortcutDisplay()
+                if let m = self.localMonitor {
+                    NSEvent.removeMonitor(m)
+                    self.localMonitor = nil
+                }
+                return nil
+            }
 
-        // --- How to use ---
-        append("How to use\n", font: headingFont, color: headingColor, spacing: 6)
-        append("""
-        1. Just type normally. LangSwitcher runs in the background.\n\
-        2. If you type a word in the wrong layout and press Space / Enter,\n\
-           it will be corrected automatically.\n\
-        3. Use the menu bar icon (⌨) to enable / disable the app.\n\n
-        """, font: bodyFont, color: bodyColor)
+            let keyCode = Int(event.keyCode)
+            let mods = SettingsWindowController.significantModifiers(UInt64(event.modifierFlags.rawValue))
 
-        // --- Force convert ---
-        append("Force‑convert shortcut\n", font: headingFont, color: headingColor, spacing: 6)
-        append("""
-        You can also force‑convert the current word at any time using \
-        a keyboard shortcut (default: ⌥T).\n\
-        • With modifiers (e.g. ⌥T) — a single press converts the word.\n\
-        • Without modifiers (e.g. just T) — double‑tap to convert.\n\n
-        """, font: bodyFont, color: bodyColor)
+            self.currentKeyCode = keyCode
+            self.currentModifiers = mods
+            self.updateShortcutDisplay()
 
-        // --- Changing shortcut ---
-        append("Changing the shortcut\n", font: headingFont, color: headingColor, spacing: 6)
-        append("""
-        1. Click the ⌨ icon in the menu bar.\n\
-        2. Choose "Settings…" (or press ⌘,).\n\
-        3. Click the shortcut field and press your new key combination.\n\
-        4. Press Escape to cancel.\n\n
-        """, font: bodyFont, color: bodyColor)
+            UserDefaults.standard.set(keyCode, forKey: "ForceConvertKeyCode")
+            UserDefaults.standard.set(Int64(bitPattern: mods), forKey: "ForceConvertModifiers")
 
-        // --- Permissions ---
-        append("Accessibility Permission\n", font: headingFont, color: headingColor, spacing: 6)
-        append("""
-        LangSwitcher needs Accessibility access to read and replace\n\
-        keyboard input. Without it the app cannot function.\n\n\
-        To grant access:\n\
-        1. Open System Settings → Privacy & Security → Accessibility.\n\
-        2. Enable the toggle next to LangSwitcher.\n\
-        3. If you don't see it, click "+" and add the app manually.\n\n\
-        You can also use the button below to open the permission dialog.\n
-        """, font: bodyFont, color: bodyColor)
+            self.onShortcutChanged?(keyCode, mods)
 
-        return result
+            if let m = self.localMonitor {
+                NSEvent.removeMonitor(m)
+                self.localMonitor = nil
+            }
+            return nil
+        }
     }
 
     // MARK: - Actions

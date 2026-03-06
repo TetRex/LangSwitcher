@@ -126,7 +126,14 @@ final class MenuBarController {
 
     private func showWelcome() {
         if welcomeController == nil {
-            welcomeController = WelcomeWindowController()
+            welcomeController = WelcomeWindowController(
+                currentKeyCode: interceptor.forceConvertKeyCode,
+                currentModifiers: interceptor.forceConvertModifiers
+            )
+            welcomeController?.onShortcutChanged = { [weak self] keyCode, modifiers in
+                self?.interceptor.forceConvertKeyCode = keyCode
+                self?.interceptor.forceConvertModifiers = modifiers
+            }
             NotificationCenter.default.addObserver(
                 forName: NSWindow.willCloseNotification,
                 object: welcomeController?.window,
