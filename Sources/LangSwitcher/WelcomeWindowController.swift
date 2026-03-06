@@ -156,7 +156,7 @@ final class WelcomeWindowController: NSWindowController {
             grantHelpLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
 
             startButton.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
-            startButton.topAnchor.constraint(equalTo: grantHelpLabel.bottomAnchor, constant: 24),
+            startButton.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -20),
             startButton.widthAnchor.constraint(equalToConstant: startButtonWidth),
             startButton.heightAnchor.constraint(equalToConstant: startButtonHeight),
         ])
