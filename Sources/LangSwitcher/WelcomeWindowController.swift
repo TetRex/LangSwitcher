@@ -28,7 +28,7 @@ final class WelcomeWindowController: NSWindowController {
         self.currentModifiers = currentModifiers
 
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 460, height: 260),
+            contentRect: NSRect(x: 0, y: 0, width: 360, height: 520),
             styleMask: [.titled, .closable],
             backing: .buffered,
             defer: false
@@ -50,8 +50,12 @@ final class WelcomeWindowController: NSWindowController {
     private func buildUI() {
         guard let contentView = window?.contentView else { return }
 
+        contentView.wantsLayer = true
+        contentView.layer?.backgroundColor = NSColor.black.cgColor
+
         let shortcutLabel = NSTextField(labelWithString: "Shortcut")
         shortcutLabel.font = .systemFont(ofSize: 13, weight: .semibold)
+        shortcutLabel.textColor = .white
         shortcutLabel.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(shortcutLabel)
 
@@ -61,6 +65,9 @@ final class WelcomeWindowController: NSWindowController {
         shortcutField.font = .monospacedSystemFont(ofSize: 18, weight: .medium)
         shortcutField.isBezeled = true
         shortcutField.bezelStyle = .roundedBezel
+        shortcutField.textColor = .white
+        shortcutField.backgroundColor = NSColor(white: 0.12, alpha: 1.0)
+        shortcutField.drawsBackground = true
         shortcutField.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(shortcutField)
 
@@ -70,21 +77,33 @@ final class WelcomeWindowController: NSWindowController {
         let grantButton = NSButton(title: "Grant Access",
                                    target: self,
                                    action: #selector(grantAccessibility))
-        grantButton.bezelStyle = .recessed
+        grantButton.bezelStyle = .rounded
+        grantButton.contentTintColor = .white
+        grantButton.bezelColor = NSColor(white: 0.2, alpha: 1.0)
         grantButton.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(grantButton)
+
+        let grantHelpLabel = NSTextField(labelWithString: "Opens Accessibility settings. Turn on LangSwitcher and return here.")
+        grantHelpLabel.font = .systemFont(ofSize: 11, weight: .regular)
+        grantHelpLabel.textColor = NSColor(white: 0.85, alpha: 1.0)
+        grantHelpLabel.maximumNumberOfLines = 2
+        grantHelpLabel.lineBreakMode = .byWordWrapping
+        grantHelpLabel.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(grantHelpLabel)
 
         let startButton = NSButton(title: "Start",
                                    target: self,
                                    action: #selector(dismissWelcome))
-        startButton.bezelStyle = .regularSquare
-        startButton.font = .systemFont(ofSize: 22, weight: .bold)
+        startButton.bezelStyle = .rounded
+        startButton.font = .systemFont(ofSize: 26, weight: .bold)
+        startButton.contentTintColor = .white
+        startButton.bezelColor = .systemBlue
         startButton.keyEquivalent = "\r"
         startButton.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(startButton)
 
         NSLayoutConstraint.activate([
-            shortcutLabel.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 22),
+            shortcutLabel.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 26),
             shortcutLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
 
             shortcutField.topAnchor.constraint(equalTo: shortcutLabel.bottomAnchor, constant: 10),
@@ -94,11 +113,16 @@ final class WelcomeWindowController: NSWindowController {
 
             grantButton.topAnchor.constraint(equalTo: shortcutField.bottomAnchor, constant: 18),
             grantButton.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
+            grantButton.widthAnchor.constraint(equalToConstant: 120),
 
-            startButton.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
+            grantHelpLabel.topAnchor.constraint(equalTo: grantButton.bottomAnchor, constant: 8),
+            grantHelpLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
+            grantHelpLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
+
+            startButton.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
             startButton.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -20),
-            startButton.widthAnchor.constraint(equalToConstant: 180),
-            startButton.heightAnchor.constraint(equalToConstant: 60),
+            startButton.widthAnchor.constraint(equalToConstant: 220),
+            startButton.heightAnchor.constraint(equalToConstant: 74),
         ])
     }
 
