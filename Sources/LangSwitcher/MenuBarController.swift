@@ -117,7 +117,6 @@ final class MenuBarController {
             on an English QWERTY keyboard back to English.
             """
         alert.alertStyle = .informational
-        alert.icon = NSApp.applicationIconImage
         alert.runModal()
     }
 

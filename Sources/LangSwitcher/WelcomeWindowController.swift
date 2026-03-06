@@ -54,7 +54,10 @@ final class WelcomeWindowController: NSWindowController {
         contentView.layer?.backgroundColor = NSColor.black.cgColor
 
         let appIconView = NSImageView()
-        appIconView.image = NSApp.applicationIconImage
+        let appIcon = Bundle.main.image(forResource: "AppIcon")
+            ?? Bundle.main.url(forResource: "AppIcon", withExtension: "icns").flatMap { NSImage(contentsOf: $0) }
+            ?? NSApp.applicationIconImage
+        appIconView.image = appIcon
         appIconView.imageScaling = .scaleProportionallyUpOrDown
         appIconView.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(appIconView)
@@ -66,7 +69,7 @@ final class WelcomeWindowController: NSWindowController {
         appNameLabel.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(appNameLabel)
 
-        let shortcutLabel = NSTextField(labelWithString: "You can change shortcut")
+        let shortcutLabel = NSTextField(labelWithString: "Shortcut")
         shortcutLabel.font = .systemFont(ofSize: 13, weight: .semibold)
         shortcutLabel.textColor = .white
         shortcutLabel.translatesAutoresizingMaskIntoConstraints = false
