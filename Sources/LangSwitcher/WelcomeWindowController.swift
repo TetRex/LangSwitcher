@@ -45,7 +45,7 @@ final class WelcomeWindowController: NSWindowController {
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError() }
 
-    // MARK: - UI
+    // MARK: - UIs
 
     private func buildUI() {
         guard let contentView = window?.contentView else { return }
@@ -54,9 +54,7 @@ final class WelcomeWindowController: NSWindowController {
         contentView.layer?.backgroundColor = NSColor.black.cgColor
 
         let appIconView = NSImageView()
-        let appIcon = Bundle.main.image(forResource: "AppIcon")
-            ?? Bundle.main.url(forResource: "AppIcon", withExtension: "icns").flatMap { NSImage(contentsOf: $0) }
-            ?? NSApp.applicationIconImage
+        let appIcon = NSImage(named: "AppIconImage")
         appIconView.image = appIcon
         appIconView.imageScaling = .scaleProportionallyUpOrDown
         appIconView.translatesAutoresizingMaskIntoConstraints = false
@@ -128,7 +126,7 @@ final class WelcomeWindowController: NSWindowController {
         contentView.addSubview(startButton)
 
         let startButtonWidth: CGFloat = 150
-        let startButtonHeight: CGFloat = 70
+        let startButtonHeight: CGFloat = 60
 
         NSLayoutConstraint.activate([
             appIconView.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 20),

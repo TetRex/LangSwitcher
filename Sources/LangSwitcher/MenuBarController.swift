@@ -22,7 +22,7 @@ final class MenuBarController {
         buildMenu()
         updateIcon()
 
-        // Show the welcome window when Accessibility permission is not granted.
+        // Show welcome only if Accessibility permission hasn't been granted yet.
         if !WelcomeWindowController.isAccessibilityGranted {
             showWelcome()
         }
@@ -141,6 +141,8 @@ final class MenuBarController {
             ) { [weak self] _ in
                 MainActor.assumeIsolated {
                     self?.welcomeController = nil
+                    // Retry starting the event tap after the user finishes setup.
+                    self?.interceptor.startEventTap()
                 }
             }
         }

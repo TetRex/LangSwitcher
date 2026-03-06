@@ -51,7 +51,7 @@ final class KeyboardInterceptor {
             userInfo: unmanagedSelf.toOpaque()
         ) else {
             print("⚠️  Could not create event tap – Accessibility permission required.")
-            promptAccessibility()
+
             return
         }
 
