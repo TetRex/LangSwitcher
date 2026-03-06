@@ -11,7 +11,7 @@ let package = Package(
             path: "Sources/LangSwitcher",
             exclude: ["Info.plist"],
             resources: [
-                .copy("AppIcon.icns")
+                .copy("AppIcon.icon")
             ],
             linkerSettings: [
                 .unsafeFlags([
