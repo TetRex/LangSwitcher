@@ -111,13 +111,24 @@ final class WelcomeWindowController: NSWindowController {
         let startButton = NSButton(title: "Start",
                                    target: self,
                                    action: #selector(dismissWelcome))
-        startButton.bezelStyle = .rounded
-        startButton.font = .systemFont(ofSize: 26, weight: .bold)
-        startButton.contentTintColor = .white
-        startButton.bezelColor = .systemBlue
+        startButton.isBordered = false
+        startButton.wantsLayer = true
+        startButton.layer?.backgroundColor = NSColor.systemBlue.cgColor
+        startButton.layer?.cornerRadius = 16
+        startButton.layer?.masksToBounds = true
+        startButton.attributedTitle = NSAttributedString(
+            string: "Start",
+            attributes: [
+                .font: NSFont.systemFont(ofSize: 24, weight: .bold),
+                .foregroundColor: NSColor.white
+            ]
+        )
         startButton.keyEquivalent = "\r"
         startButton.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(startButton)
+
+        let startButtonWidth: CGFloat = 150
+        let startButtonHeight: CGFloat = 70
 
         NSLayoutConstraint.activate([
             appIconView.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 20),
@@ -145,9 +156,9 @@ final class WelcomeWindowController: NSWindowController {
             grantHelpLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
 
             startButton.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
-            startButton.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -20),
-            startButton.widthAnchor.constraint(equalToConstant: 220),
-            startButton.heightAnchor.constraint(equalToConstant: 88),
+            startButton.topAnchor.constraint(equalTo: grantHelpLabel.bottomAnchor, constant: 24),
+            startButton.widthAnchor.constraint(equalToConstant: startButtonWidth),
+            startButton.heightAnchor.constraint(equalToConstant: startButtonHeight),
         ])
     }
 
