@@ -1,6 +1,6 @@
 # LangSwitcher
 
-A lightweight macOS menu bar utility that automatically converts Cyrillic (Russian) text typed on an English QWERTY keyboard back to English.
+A lightweight macOS menu bar utility that automatically converts Cyrillic text typed on an English QWERTY keyboard back to English.
 
 ## How It Works
 
