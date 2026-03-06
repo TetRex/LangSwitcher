@@ -117,11 +117,13 @@ final class WelcomeWindowController: NSWindowController {
         append("What does it do?\n", font: headingFont, color: headingColor, spacing: 6)
         append("""
         LangSwitcher watches your keyboard input and automatically \
-        fixes words you accidentally type in Russian (Cyrillic) layout \
+        fixes words you accidentally type in a Cyrillic layout \
         when you meant to type in English.\n\
         When you press Space or Enter and the typed word is Cyrillic but \
-        not a valid Russian word — and the QWERTY equivalent is a valid \
-        English word — it swaps the text and switches your layout to English.\n\n
+        not a valid word in any supported Cyrillic language (Russian, Ukrainian, \
+        Belarusian, Bulgarian, Serbian, Macedonian) — and the QWERTY equivalent \
+        is a valid English word — it swaps the text and switches your layout \
+        to English.\n\n
         """, font: bodyFont, color: bodyColor)
 
         // --- How to use ---

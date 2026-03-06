@@ -174,7 +174,7 @@ final class KeyboardInterceptor {
             let word = currentWord
             currentWord = ""
             if CyrillicMapper.isCyrillic(word),
-               !CyrillicMapper.isValidRussianWord(word),
+               !CyrillicMapper.isValidCyrillicWord(word),
                let english = CyrillicMapper.convert(word),
                CyrillicMapper.isValidEnglishWord(english) {
                 replaceLastWord(charCount: word.count,
