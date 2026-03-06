@@ -16,7 +16,7 @@ final class MenuBarController {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         if let button = statusItem.button {
             button.image = NSImage(systemSymbolName: "keyboard",
-                                   accessibilityDescription: "LangSwitch")
+                                   accessibilityDescription: "LangSwitcher")
         }
 
         buildMenu()
@@ -54,7 +54,7 @@ final class MenuBarController {
         help.target = self
         menu.addItem(help)
 
-        let about = NSMenuItem(title: "About LangSwitch",
+        let about = NSMenuItem(title: "About LangSwitcher",
                                action: #selector(showAbout),
                                keyEquivalent: "")
         about.target = self
@@ -111,7 +111,7 @@ final class MenuBarController {
 
     @objc private func showAbout() {
         let alert = NSAlert()
-        alert.messageText = "LangSwitch 0.0.2"
+        alert.messageText = "LangSwitcher 0.0.2"
         alert.informativeText = """
             Automatically converts Russian (Cyrillic) text typed \
             on an English QWERTY keyboard back to English.
@@ -148,7 +148,7 @@ final class MenuBarController {
         guard let button = statusItem.button else { return }
         let symbolName = interceptor.isEnabled ? "keyboard" : "keyboard.chevron.compact.left"
         button.image = NSImage(systemSymbolName: symbolName,
-                               accessibilityDescription: "LangSwitch")
+                               accessibilityDescription: "LangSwitcher")
         // Add a subtle visual cue: dim when disabled
         button.appearsDisabled = !interceptor.isEnabled
     }

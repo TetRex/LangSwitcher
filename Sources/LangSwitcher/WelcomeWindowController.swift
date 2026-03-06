@@ -19,7 +19,7 @@ final class WelcomeWindowController: NSWindowController {
             backing: .buffered,
             defer: false
         )
-        window.title = "Welcome to LangSwitch"
+        window.title = "Welcome to LangSwitcher"
         window.center()
         window.isReleasedWhenClosed = false
 
@@ -111,12 +111,12 @@ final class WelcomeWindowController: NSWindowController {
         }
 
         // Title
-        append("Welcome to LangSwitch ⌨️\n\n", font: titleFont, color: titleColor, spacing: 8)
+        append("Welcome to LangSwitcher ⌨️\n\n", font: titleFont, color: titleColor, spacing: 8)
 
         // --- What it does ---
         append("What does it do?\n", font: headingFont, color: headingColor, spacing: 6)
         append("""
-        LangSwitch watches your keyboard input and automatically \
+        LangSwitcher watches your keyboard input and automatically \
         fixes words you accidentally type in Russian (Cyrillic) layout \
         when you meant to type in English.\n\
         When you press Space or Enter and the typed word is Cyrillic but \
@@ -127,7 +127,7 @@ final class WelcomeWindowController: NSWindowController {
         // --- How to use ---
         append("How to use\n", font: headingFont, color: headingColor, spacing: 6)
         append("""
-        1. Just type normally. LangSwitch runs in the background.\n\
+        1. Just type normally. LangSwitcher runs in the background.\n\
         2. If you type a word in the wrong layout and press Space / Enter,\n\
            it will be corrected automatically.\n\
         3. Use the menu bar icon (⌨) to enable / disable the app.\n\n
@@ -154,11 +154,11 @@ final class WelcomeWindowController: NSWindowController {
         // --- Permissions ---
         append("Accessibility Permission\n", font: headingFont, color: headingColor, spacing: 6)
         append("""
-        LangSwitch needs Accessibility access to read and replace\n\
+        LangSwitcher needs Accessibility access to read and replace\n\
         keyboard input. Without it the app cannot function.\n\n\
         To grant access:\n\
         1. Open System Settings → Privacy & Security → Accessibility.\n\
-        2. Enable the toggle next to LangSwitch.\n\
+        2. Enable the toggle next to LangSwitcher.\n\
         3. If you don't see it, click "+" and add the app manually.\n\n\
         You can also use the button below to open the permission dialog.\n
         """, font: bodyFont, color: bodyColor)

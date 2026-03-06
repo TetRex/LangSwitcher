@@ -2,7 +2,7 @@ import AppKit
 
 @main
 @MainActor
-struct LangSwitchApp {
+struct LangSwitcherApp {
     static func main() {
         let app = NSApplication.shared
         app.setActivationPolicy(.accessory) // no Dock icon

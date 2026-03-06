@@ -350,7 +350,7 @@ final class KeyboardInterceptor {
             let alert = NSAlert()
             alert.messageText = "Accessibility Permission Required"
             alert.informativeText = """
-                LangSwitch needs Accessibility access to intercept keyboard input.
+                LangSwitcher needs Accessibility access to intercept keyboard input.
                 Please grant access in System Settings → Privacy & Security → Accessibility, \
                 then relaunch the app.
                 """

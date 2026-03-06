@@ -8,11 +8,11 @@
     <key>CFBundleIconFile</key>
     <string>AppIcon</string>
     <key>CFBundleExecutable</key>
-    <string>LangSwitch</string>
+    <string>LangSwitcher</string>
     <key>CFBundleName</key>
-    <string>LangSwitch</string>
+    <string>LangSwitcher</string>
     <key>CFBundleIdentifier</key>
-    <string>com.tetrex.langSwitch</string>
+    <string>com.tetrex.langSwitcher</string>
     <key>CFBundleVersion</key>
     <string>1.0</string>
     <key>CFBundleShortVersionString</key>

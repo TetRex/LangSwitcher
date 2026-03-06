@@ -39,7 +39,7 @@ final class SettingsWindowController: NSWindowController {
             backing: .buffered,
             defer: false
         )
-        window.title = "LangSwitch Settings"
+        window.title = "LangSwitcher Settings"
         window.center()
         window.isReleasedWhenClosed = false
 
