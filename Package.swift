@@ -9,7 +9,7 @@ let package = Package(
         .executableTarget(
             name: "LangSwitcher",
             path: "Sources/LangSwitcher",
-            exclude: ["Info.plist", "AppIcon.icns"],
+            exclude: ["Info.plist"],
             resources: [
                 .copy("AppIcon.icns")
             ],

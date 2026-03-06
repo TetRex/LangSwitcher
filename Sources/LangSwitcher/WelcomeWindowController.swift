@@ -53,6 +53,22 @@ final class WelcomeWindowController: NSWindowController {
         contentView.wantsLayer = true
         contentView.layer?.backgroundColor = NSColor.black.cgColor
 
+        let appIconView = NSImageView()
+        let appIcon = Bundle.main.image(forResource: "AppIcon")
+            ?? Bundle.main.url(forResource: "AppIcon", withExtension: "icns").flatMap { NSImage(contentsOf: $0) }
+            ?? NSApp.applicationIconImage
+        appIconView.image = appIcon
+        appIconView.imageScaling = .scaleProportionallyUpOrDown
+        appIconView.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(appIconView)
+
+        let appNameLabel = NSTextField(labelWithString: "LangSwitcher")
+        appNameLabel.font = .systemFont(ofSize: 26, weight: .bold)
+        appNameLabel.textColor = .white
+        appNameLabel.alignment = .center
+        appNameLabel.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(appNameLabel)
+
         let shortcutLabel = NSTextField(labelWithString: "Shortcut")
         shortcutLabel.font = .systemFont(ofSize: 13, weight: .semibold)
         shortcutLabel.textColor = .white
@@ -86,6 +102,7 @@ final class WelcomeWindowController: NSWindowController {
         let grantHelpLabel = NSTextField(labelWithString: "Opens Accessibility settings. Turn on LangSwitcher and return here.")
         grantHelpLabel.font = .systemFont(ofSize: 11, weight: .regular)
         grantHelpLabel.textColor = NSColor(white: 0.85, alpha: 1.0)
+        grantHelpLabel.alignment = .center
         grantHelpLabel.maximumNumberOfLines = 2
         grantHelpLabel.lineBreakMode = .byWordWrapping
         grantHelpLabel.translatesAutoresizingMaskIntoConstraints = false
@@ -103,7 +120,15 @@ final class WelcomeWindowController: NSWindowController {
         contentView.addSubview(startButton)
 
         NSLayoutConstraint.activate([
-            shortcutLabel.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 26),
+            appIconView.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 20),
+            appIconView.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
+            appIconView.widthAnchor.constraint(equalToConstant: 96),
+            appIconView.heightAnchor.constraint(equalToConstant: 96),
+
+            appNameLabel.topAnchor.constraint(equalTo: appIconView.bottomAnchor, constant: 12),
+            appNameLabel.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
+
+            shortcutLabel.topAnchor.constraint(equalTo: appNameLabel.bottomAnchor, constant: 26),
             shortcutLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
 
             shortcutField.topAnchor.constraint(equalTo: shortcutLabel.bottomAnchor, constant: 10),
@@ -112,7 +137,7 @@ final class WelcomeWindowController: NSWindowController {
             shortcutField.heightAnchor.constraint(equalToConstant: 46),
 
             grantButton.topAnchor.constraint(equalTo: shortcutField.bottomAnchor, constant: 18),
-            grantButton.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
+            grantButton.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
             grantButton.widthAnchor.constraint(equalToConstant: 120),
 
             grantHelpLabel.topAnchor.constraint(equalTo: grantButton.bottomAnchor, constant: 8),
@@ -122,7 +147,7 @@ final class WelcomeWindowController: NSWindowController {
             startButton.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
             startButton.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -20),
             startButton.widthAnchor.constraint(equalToConstant: 220),
-            startButton.heightAnchor.constraint(equalToConstant: 74),
+            startButton.heightAnchor.constraint(equalToConstant: 88),
         ])
     }
 
