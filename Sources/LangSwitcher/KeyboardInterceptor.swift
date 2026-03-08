@@ -216,9 +216,8 @@ final class KeyboardInterceptor {
 
     // MARK: - Replace typed word
 
-    /// Selects the Cyrillic word, then types the full replacement + trailing
-    /// character as a single Unicode event — effectively an atomic swap that
-    /// appears instant to the user.
+    /// Deletes the typed word with Backspace, then types the replacement +
+    /// trailing Space/Enter — works in Terminal and all other apps.
     private func replaceLastWord(charCount: Int,
                                   replacement: String,
                                   trailingEvent: CGEvent) {
@@ -230,12 +229,12 @@ final class KeyboardInterceptor {
 
         let src = CGEventSource(stateID: .combinedSessionState)
 
-        // 1. Select the Cyrillic word: Shift + Left Arrow × charCount.
+        // 1. Delete the mistyped word with Backspace × charCount.
         for _ in 0..<charCount {
-            postKey(CGKeyCode(kVK_LeftArrow), flags: .maskShift, source: src)
+            postKey(CGKeyCode(kVK_Delete), flags: [], source: src)
         }
 
-        // 2. Type the full replacement + trailing Space/Enter as ONE event.
+        // 2. Type the full replacement + trailing Space/Enter.
         let trailingKeyCode = trailingEvent.getIntegerValueField(.keyboardEventKeycode)
         let trailing: String = trailingKeyCode == Int64(kVK_Return) ? "\n" : " "
         typeUnicodeString(replacement + trailing, source: src)
@@ -246,10 +245,9 @@ final class KeyboardInterceptor {
         }
     }
 
-    /// Selects `charCount` characters and replaces them with `replacement`
-    /// without appending a trailing character. Used by force‑convert triggers.
+    /// Deletes `charCount` characters with Backspace and types `replacement`.
     /// When `includeExtraChar` is true (double‑tap mode), an extra character
-    /// from the first tap that was let through is also selected.
+    /// from the first tap that was let through is also deleted.
     private func replaceCurrentWord(charCount: Int,
                                      replacement: String,
                                      includeExtraChar: Bool = true) {
@@ -262,7 +260,7 @@ final class KeyboardInterceptor {
 
         let total = includeExtraChar ? charCount + 1 : charCount
         for _ in 0..<total {
-            postKey(CGKeyCode(kVK_LeftArrow), flags: .maskShift, source: src)
+            postKey(CGKeyCode(kVK_Delete), flags: [], source: src)
         }
 
         typeUnicodeString(replacement, source: src)
