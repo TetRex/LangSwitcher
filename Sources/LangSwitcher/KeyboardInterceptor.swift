@@ -123,7 +123,8 @@ final class KeyboardInterceptor {
                     currentWord = ""
                     if let english = CyrillicMapper.convertIncludingLatin(word) {
                         replaceCurrentWord(charCount: word.count,
-                                           replacement: english)
+                                           replacement: english,
+                                           includeExtraChar: false)
                         switchToEnglishLayout()
                     }
                     return nil
@@ -245,9 +246,12 @@ final class KeyboardInterceptor {
     }
 
     /// Selects `charCount` characters and replaces them with `replacement`
-    /// without appending a trailing character. Used by the double‑Tab trigger.
+    /// without appending a trailing character. Used by force‑convert triggers.
+    /// When `includeExtraChar` is true (double‑tap mode), an extra character
+    /// from the first tap that was let through is also selected.
     private func replaceCurrentWord(charCount: Int,
-                                     replacement: String) {
+                                     replacement: String,
+                                     includeExtraChar: Bool = true) {
 
         if let tap = eventTap {
             CGEvent.tapEnable(tap: tap, enable: false)
@@ -255,8 +259,8 @@ final class KeyboardInterceptor {
 
         let src = CGEventSource(stateID: .combinedSessionState)
 
-        // Also select the first Tab that was let through, so +1.
-        for _ in 0..<(charCount + 1) {
+        let total = includeExtraChar ? charCount + 1 : charCount
+        for _ in 0..<total {
             postKey(CGKeyCode(kVK_LeftArrow), flags: .maskShift, source: src)
         }
 

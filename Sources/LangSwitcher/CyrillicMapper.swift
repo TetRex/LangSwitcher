@@ -129,8 +129,15 @@ enum CyrillicMapper {
 
     // MARK: - Spell checking
 
-    /// Cyrillic language codes to check against the macOS spell checker.
-    private static let cyrillicLanguages = ["ru", "uk", "be", "bg", "sr", "mk"]
+    /// Cyrillic language codes to check against the macOS spell checker,
+    /// filtered to only those actually available on this system.
+    private static let cyrillicLanguages: [String] = {
+        let candidates = ["ru", "uk", "be", "bg", "sr", "mk"]
+        let available = Set(NSSpellChecker.shared.availableLanguages)
+        return candidates.filter { lang in
+            available.contains(lang) || available.contains { $0.hasPrefix(lang + "_") || $0.hasPrefix(lang + "-") }
+        }
+    }()
 
     /// Returns `true` when the word is valid in any Cyrillic language
     /// according to the macOS spell checker.
