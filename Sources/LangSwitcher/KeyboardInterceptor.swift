@@ -121,10 +121,10 @@ final class KeyboardInterceptor {
                 if eventMods == requiredMods {
                     let word = currentWord
                     currentWord = ""
-                    if let conversion = forceConvert(word) {
+                    if let english = CyrillicMapper.convertIncludingLatin(word) {
                         replaceCurrentWord(charCount: word.count,
-                                           replacement: conversion.replacement)
-                        applyLayout(conversion.layout)
+                                           replacement: english)
+                        switchToEnglishLayout()
                     }
                     return nil
                 }
@@ -137,10 +137,10 @@ final class KeyboardInterceptor {
                         lastShortcutTime = 0
                         let word = currentWord
                         currentWord = ""
-                        if let conversion = forceConvert(word) {
+                        if let english = CyrillicMapper.convertIncludingLatin(word) {
                             replaceCurrentWord(charCount: word.count,
-                                               replacement: conversion.replacement)
-                            applyLayout(conversion.layout)
+                                               replacement: english)
+                            switchToEnglishLayout()
                         }
                         return nil
                     } else {
@@ -296,42 +296,6 @@ final class KeyboardInterceptor {
             up.flags = flags
             down.post(tap: .cgSessionEventTap)
             up.post(tap: .cgSessionEventTap)
-        }
-    }
-
-    private enum TargetLayout {
-        case english
-        case cyrillic
-    }
-
-    private struct ForcedConversion {
-        let replacement: String
-        let layout: TargetLayout
-    }
-
-    /// Force shortcut conversion: try Cyrillic->English first, then
-    /// English-layout mistype -> Cyrillic for words that aren't valid English.
-    private func forceConvert(_ word: String) -> ForcedConversion? {
-        guard !word.isEmpty else { return nil }
-
-        if let english = CyrillicMapper.convertIncludingLatin(word) {
-            return ForcedConversion(replacement: english, layout: .english)
-        }
-
-        if !CyrillicMapper.isValidEnglishWord(word),
-           let cyrillic = CyrillicMapper.convertEnglishMistypeToValidCyrillic(word) {
-            return ForcedConversion(replacement: cyrillic, layout: .cyrillic)
-        }
-
-        return nil
-    }
-
-    private func applyLayout(_ layout: TargetLayout) {
-        switch layout {
-        case .english:
-            switchToEnglishLayout()
-        case .cyrillic:
-            switchToCyrillicLayout()
         }
     }
 
