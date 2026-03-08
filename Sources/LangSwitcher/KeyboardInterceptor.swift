@@ -187,7 +187,6 @@ final class KeyboardInterceptor {
                 replaceLastWord(charCount: word.count,
                                 replacement: cyrillic,
                                 trailingEvent: event)
-                switchToCyrillicLayout()
                 return nil
             }
 
@@ -322,31 +321,6 @@ final class KeyboardInterceptor {
             if sourceID.contains("com.apple.keylayout.US")
                 || sourceID.contains("com.apple.keylayout.ABC")
                 || sourceID.contains("com.apple.keylayout.British") {
-                TISSelectInputSource(source)
-                return
-            }
-        }
-    }
-
-    /// Switches to the first enabled Cyrillic layout (Russian/Ukrainian/etc.).
-    private func switchToCyrillicLayout() {
-        guard let sources = TISCreateInputSourceList(Self.inputSourceCriteria, false)?
-                .takeRetainedValue() as? [TISInputSource] else { return }
-
-        for source in sources {
-            guard let idPtr = TISGetInputSourceProperty(source, kTISPropertyInputSourceID) else {
-                continue
-            }
-
-            let sourceID = Unmanaged<CFString>.fromOpaque(idPtr).takeUnretainedValue() as String
-            let lowered = sourceID.lowercased()
-            if lowered.contains("russian")
-                || lowered.contains("ukrainian")
-                || lowered.contains("belarus")
-                || lowered.contains("bulgar")
-                || lowered.contains("serbian")
-                || lowered.contains("macedonian")
-                || lowered.contains("cyrillic") {
                 TISSelectInputSource(source)
                 return
             }
