@@ -2,7 +2,7 @@
 import Carbon.HIToolbox
 
 /// Intercepts global keyboard events via a CGEventTap,
-/// buffers Cyrillic characters, and replaces them with English on Space / Enter.
+/// buffers characters and auto-fixes layout mistakes on Space / Enter.
 @MainActor
 final class KeyboardInterceptor {
 
@@ -121,11 +121,10 @@ final class KeyboardInterceptor {
                 if eventMods == requiredMods {
                     let word = currentWord
                     currentWord = ""
-                    if CyrillicMapper.isCyrillic(word),
-                       let english = CyrillicMapper.convert(word) {
+                    if let conversion = forceConvert(word) {
                         replaceCurrentWord(charCount: word.count,
-                                           replacement: english)
-                        switchToEnglishLayout()
+                                           replacement: conversion.replacement)
+                        applyLayout(conversion.layout)
                     }
                     return nil
                 }
@@ -138,11 +137,10 @@ final class KeyboardInterceptor {
                         lastShortcutTime = 0
                         let word = currentWord
                         currentWord = ""
-                        if CyrillicMapper.isCyrillic(word),
-                           let english = CyrillicMapper.convert(word) {
+                        if let conversion = forceConvert(word) {
                             replaceCurrentWord(charCount: word.count,
-                                               replacement: english)
-                            switchToEnglishLayout()
+                                               replacement: conversion.replacement)
+                            applyLayout(conversion.layout)
                         }
                         return nil
                     } else {
@@ -173,9 +171,9 @@ final class KeyboardInterceptor {
         if keyCode == kVK_Space || keyCode == kVK_Return {
             let word = currentWord
             currentWord = ""
-            if CyrillicMapper.isCyrillic(word),
-               !CyrillicMapper.isValidCyrillicWord(word),
-               let english = CyrillicMapper.convert(word),
+
+            if !CyrillicMapper.isValidCyrillicWordConsideringLatinOverlap(word),
+               let english = CyrillicMapper.convertIncludingLatin(word),
                CyrillicMapper.isValidEnglishWord(english) {
                 replaceLastWord(charCount: word.count,
                                 replacement: english,
@@ -183,6 +181,16 @@ final class KeyboardInterceptor {
                 switchToEnglishLayout()
                 return nil
             }
+
+            if !CyrillicMapper.isValidEnglishWord(word),
+               let cyrillic = CyrillicMapper.convertEnglishMistypeToValidCyrillic(word) {
+                replaceLastWord(charCount: word.count,
+                                replacement: cyrillic,
+                                trailingEvent: event)
+                switchToCyrillicLayout()
+                return nil
+            }
+
             return Unmanaged.passUnretained(event)
         }
 
@@ -291,6 +299,42 @@ final class KeyboardInterceptor {
         }
     }
 
+    private enum TargetLayout {
+        case english
+        case cyrillic
+    }
+
+    private struct ForcedConversion {
+        let replacement: String
+        let layout: TargetLayout
+    }
+
+    /// Force shortcut conversion: try Cyrillic->English first, then
+    /// English-layout mistype -> Cyrillic for words that aren't valid English.
+    private func forceConvert(_ word: String) -> ForcedConversion? {
+        guard !word.isEmpty else { return nil }
+
+        if let english = CyrillicMapper.convertIncludingLatin(word) {
+            return ForcedConversion(replacement: english, layout: .english)
+        }
+
+        if !CyrillicMapper.isValidEnglishWord(word),
+           let cyrillic = CyrillicMapper.convertEnglishMistypeToValidCyrillic(word) {
+            return ForcedConversion(replacement: cyrillic, layout: .cyrillic)
+        }
+
+        return nil
+    }
+
+    private func applyLayout(_ layout: TargetLayout) {
+        switch layout {
+        case .english:
+            switchToEnglishLayout()
+        case .cyrillic:
+            switchToCyrillicLayout()
+        }
+    }
+
     // MARK: - Helpers
 
     /// Criteria dictionary for finding keyboard input sources (allocated once).
@@ -314,6 +358,31 @@ final class KeyboardInterceptor {
             if sourceID.contains("com.apple.keylayout.US")
                 || sourceID.contains("com.apple.keylayout.ABC")
                 || sourceID.contains("com.apple.keylayout.British") {
+                TISSelectInputSource(source)
+                return
+            }
+        }
+    }
+
+    /// Switches to the first enabled Cyrillic layout (Russian/Ukrainian/etc.).
+    private func switchToCyrillicLayout() {
+        guard let sources = TISCreateInputSourceList(Self.inputSourceCriteria, false)?
+                .takeRetainedValue() as? [TISInputSource] else { return }
+
+        for source in sources {
+            guard let idPtr = TISGetInputSourceProperty(source, kTISPropertyInputSourceID) else {
+                continue
+            }
+
+            let sourceID = Unmanaged<CFString>.fromOpaque(idPtr).takeUnretainedValue() as String
+            let lowered = sourceID.lowercased()
+            if lowered.contains("russian")
+                || lowered.contains("ukrainian")
+                || lowered.contains("belarus")
+                || lowered.contains("bulgar")
+                || lowered.contains("serbian")
+                || lowered.contains("macedonian")
+                || lowered.contains("cyrillic") {
                 TISSelectInputSource(source)
                 return
             }
