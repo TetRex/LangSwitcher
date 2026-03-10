@@ -28,7 +28,7 @@ final class WelcomeWindowController: NSWindowController {
         self.currentModifiers = currentModifiers
 
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 360, height: 520),
+            contentRect: NSRect(x: 0, y: 0, width: 150, height: 580),
             styleMask: [.titled, .closable],
             backing: .buffered,
             defer: false
@@ -98,6 +98,21 @@ final class WelcomeWindowController: NSWindowController {
         separator1b.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(separator1b)
 
+        let grantSectionHeader = NSTextField(labelWithString: "Accessibility Permission")
+        grantSectionHeader.font = .systemFont(ofSize: 13, weight: .semibold)
+        grantSectionHeader.textColor = .white
+        grantSectionHeader.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(grantSectionHeader)
+
+        let grantHelpLabel = NSTextField(labelWithString: "Opens Accessibility settings. Turn on LangSwitcher and return here.")
+        grantHelpLabel.font = .systemFont(ofSize: 11, weight: .regular)
+        grantHelpLabel.textColor = NSColor(white: 0.72, alpha: 1.0)
+        grantHelpLabel.alignment = .left
+        grantHelpLabel.maximumNumberOfLines = 3
+        grantHelpLabel.lineBreakMode = .byWordWrapping
+        grantHelpLabel.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(grantHelpLabel)
+
         let grantButton = NSButton(title: "Grant Access",
                                    target: self,
                                    action: #selector(grantAccessibility))
@@ -106,15 +121,6 @@ final class WelcomeWindowController: NSWindowController {
         grantButton.bezelColor = NSColor(white: 0.2, alpha: 1.0)
         grantButton.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(grantButton)
-
-        let grantHelpLabel = NSTextField(labelWithString: "Opens Accessibility settings. Turn on LangSwitcher and return here.")
-        grantHelpLabel.font = .systemFont(ofSize: 11, weight: .regular)
-        grantHelpLabel.textColor = NSColor(white: 0.85, alpha: 1.0)
-        grantHelpLabel.alignment = .center
-        grantHelpLabel.maximumNumberOfLines = 2
-        grantHelpLabel.lineBreakMode = .byWordWrapping
-        grantHelpLabel.translatesAutoresizingMaskIntoConstraints = false
-        contentView.addSubview(grantHelpLabel)
 
         let separator2 = NSBox()
         separator2.boxType = .separator
@@ -168,13 +174,16 @@ final class WelcomeWindowController: NSWindowController {
             separator1b.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
             separator1b.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
 
-            grantButton.topAnchor.constraint(equalTo: separator1b.bottomAnchor, constant: 16),
-            grantButton.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
-            grantButton.widthAnchor.constraint(equalToConstant: 120),
+            grantSectionHeader.topAnchor.constraint(equalTo: separator1b.bottomAnchor, constant: 14),
+            grantSectionHeader.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
 
-            grantHelpLabel.topAnchor.constraint(equalTo: grantButton.bottomAnchor, constant: 8),
+            grantHelpLabel.topAnchor.constraint(equalTo: grantSectionHeader.bottomAnchor, constant: 8),
             grantHelpLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
-            grantHelpLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
+            grantHelpLabel.trailingAnchor.constraint(equalTo: grantButton.leadingAnchor, constant: -12),
+
+            grantButton.centerYAnchor.constraint(equalTo: grantHelpLabel.centerYAnchor),
+            grantButton.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
+            grantButton.widthAnchor.constraint(equalToConstant: 110),
 
             separator2.topAnchor.constraint(equalTo: grantHelpLabel.bottomAnchor, constant: 20),
             separator2.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
