@@ -88,6 +88,16 @@ final class WelcomeWindowController: NSWindowController {
         let click = NSClickGestureRecognizer(target: self, action: #selector(startRecordingShortcut))
         shortcutField.addGestureRecognizer(click)
 
+        let separator1 = NSBox()
+        separator1.boxType = .separator
+        separator1.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(separator1)
+
+        let separator1b = NSBox()
+        separator1b.boxType = .separator
+        separator1b.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(separator1b)
+
         let grantButton = NSButton(title: "Grant Access",
                                    target: self,
                                    action: #selector(grantAccessibility))
@@ -105,6 +115,11 @@ final class WelcomeWindowController: NSWindowController {
         grantHelpLabel.lineBreakMode = .byWordWrapping
         grantHelpLabel.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(grantHelpLabel)
+
+        let separator2 = NSBox()
+        separator2.boxType = .separator
+        separator2.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(separator2)
 
         let startButton = NSButton(title: "Start",
                                    target: self,
@@ -137,7 +152,11 @@ final class WelcomeWindowController: NSWindowController {
             appNameLabel.topAnchor.constraint(equalTo: appIconView.bottomAnchor, constant: 12),
             appNameLabel.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
 
-            shortcutLabel.topAnchor.constraint(equalTo: appNameLabel.bottomAnchor, constant: 26),
+            separator1.topAnchor.constraint(equalTo: appNameLabel.bottomAnchor, constant: 20),
+            separator1.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
+            separator1.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
+
+            shortcutLabel.topAnchor.constraint(equalTo: separator1.bottomAnchor, constant: 16),
             shortcutLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
 
             shortcutField.topAnchor.constraint(equalTo: shortcutLabel.bottomAnchor, constant: 10),
@@ -145,13 +164,21 @@ final class WelcomeWindowController: NSWindowController {
             shortcutField.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
             shortcutField.heightAnchor.constraint(equalToConstant: 46),
 
-            grantButton.topAnchor.constraint(equalTo: shortcutField.bottomAnchor, constant: 18),
+            separator1b.topAnchor.constraint(equalTo: shortcutField.bottomAnchor, constant: 16),
+            separator1b.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
+            separator1b.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
+
+            grantButton.topAnchor.constraint(equalTo: separator1b.bottomAnchor, constant: 16),
             grantButton.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
             grantButton.widthAnchor.constraint(equalToConstant: 120),
 
             grantHelpLabel.topAnchor.constraint(equalTo: grantButton.bottomAnchor, constant: 8),
             grantHelpLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
             grantHelpLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
+
+            separator2.topAnchor.constraint(equalTo: grantHelpLabel.bottomAnchor, constant: 20),
+            separator2.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
+            separator2.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
 
             startButton.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
             startButton.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -20),
