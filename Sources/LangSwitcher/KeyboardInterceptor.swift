@@ -352,6 +352,7 @@ final class KeyboardInterceptor {
     /// Key codes that don't produce printable characters (allocated once).
     private static let nonCharKeys: Set<Int> = [
         kVK_Escape,
+        kVK_Tab,
         kVK_LeftArrow, kVK_RightArrow, kVK_UpArrow, kVK_DownArrow,
         kVK_Home, kVK_End, kVK_PageUp, kVK_PageDown,
         kVK_F1, kVK_F2, kVK_F3, kVK_F4, kVK_F5, kVK_F6,
