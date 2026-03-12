@@ -48,12 +48,6 @@ final class MenuBarController {
         settings.target = self
         menu.addItem(settings)
 
-        let help = NSMenuItem(title: "How to Use…",
-                              action: #selector(openWelcome),
-                              keyEquivalent: "")
-        help.target = self
-        menu.addItem(help)
-
         let about = NSMenuItem(title: "About LangSwitcher",
                                action: #selector(showAbout),
                                keyEquivalent: "")
