@@ -1,3 +1,8 @@
+<p align="center">
+  <img src=".github/assets/appicon.png" alt="LangSwitcher logo" width="120">
+</p>
+<h1 align="center">LangSwitcher</h1>
+
 # LangSwitcher
 
 A lightweight macOS menu bar utility that automatically fixes keyboard layout mistakes between English and Cyrillic (Russian / Ukrainian).
