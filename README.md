@@ -1,9 +1,7 @@
 <p align="center">
   <img src=".github/assets/appicon.png" alt="LangSwitcher logo" width="120">
 </p>
-<h1 align="center">LangSwitcher</h1>
-
-# LangSwitcher
+<h1 align="center">LangSwitcher - program that automatically switches keyboard layouts</h1>
 
 A lightweight macOS menu bar utility that automatically fixes keyboard layout mistakes between English and Cyrillic (Russian / Ukrainian).
 
