@@ -218,7 +218,8 @@ final class KeyboardInterceptor {
                 replaceLastWord(charCount: word.count,
                                 replacement: cyrillic,
                                 trailingEvent: event)
-                switchToCyrillicLayout()
+                let lang = CyrillicMapper.cyrillicWordLanguage(cyrillic)
+                switchToCyrillicLayout(preferredLanguage: lang)
                 return nil
             }
 
@@ -360,22 +361,52 @@ final class KeyboardInterceptor {
         }
     }
 
-    /// Switches the active keyboard layout to the first Cyrillic (Russian/Ukrainian) input source.
-    private func switchToCyrillicLayout() {
+    /// Switches the active keyboard layout to a Cyrillic (Russian/Ukrainian) input source.
+    /// When `preferredLanguage` is provided ("uk" or "ru"), the matching layout is
+    /// selected first; otherwise the first available Cyrillic layout is used.
+    private func switchToCyrillicLayout(preferredLanguage: String? = nil) {
         guard let sources = TISCreateInputSourceList(Self.inputSourceCriteria, false)?
                 .takeRetainedValue() as? [TISInputSource] else { return }
+
+        let cyrillicIDs = [
+            "com.apple.keylayout.Ukrainian",
+            "com.apple.keylayout.Russian",
+            "com.apple.keylayout.RussianWin",
+        ]
+
+        func isCyrillicSource(_ id: String) -> Bool {
+            cyrillicIDs.contains { id.contains($0) }
+        }
+
+        func matchesLanguage(_ id: String, _ lang: String) -> Bool {
+            switch lang {
+            case "uk": return id.contains("com.apple.keylayout.Ukrainian")
+            case "ru": return id.contains("com.apple.keylayout.Russian")
+                           || id.contains("com.apple.keylayout.RussianWin")
+            default:   return false
+            }
+        }
+
+        var fallback: TISInputSource?
 
         for source in sources {
             guard let idPtr = TISGetInputSourceProperty(source, kTISPropertyInputSourceID) else {
                 continue
             }
             let sourceID = Unmanaged<CFString>.fromOpaque(idPtr).takeUnretainedValue() as String
-            if sourceID.contains("com.apple.keylayout.Russian")
-                || sourceID.contains("com.apple.keylayout.Ukrainian")
-                || sourceID.contains("com.apple.keylayout.RussianWin") {
+            guard isCyrillicSource(sourceID) else { continue }
+
+            if let lang = preferredLanguage, matchesLanguage(sourceID, lang) {
                 TISSelectInputSource(source)
                 return
             }
+            if fallback == nil {
+                fallback = source
+            }
+        }
+
+        if let fallback {
+            TISSelectInputSource(fallback)
         }
     }
 
