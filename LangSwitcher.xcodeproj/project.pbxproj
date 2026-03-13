@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		395153642F5B6DCC008D6426 /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 395153632F5B6DCC008D6426 /* AppIcon.icon */; };
+		396662932F6425C70040C762 /* TextShortcutsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 396662922F6425C70040C762 /* TextShortcutsStore.swift */; };
 		AA0000000000000000000060 /* CyrillicMapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000050 /* CyrillicMapper.swift */; };
 		AA0000000000000000000061 /* KeyboardInterceptor.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000051 /* KeyboardInterceptor.swift */; };
 		AA0000000000000000000062 /* LangSwitcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000052 /* LangSwitcher.swift */; };
@@ -19,6 +20,7 @@
 
 /* Begin PBXFileReference section */
 		395153632F5B6DCC008D6426 /* AppIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = AppIcon.icon; sourceTree = "<group>"; };
+		396662922F6425C70040C762 /* TextShortcutsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextShortcutsStore.swift; sourceTree = "<group>"; };
 		AA0000000000000000000030 /* LangSwitcher.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = LangSwitcher.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		AA0000000000000000000050 /* CyrillicMapper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CyrillicMapper.swift; sourceTree = "<group>"; };
 		AA0000000000000000000051 /* KeyboardInterceptor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardInterceptor.swift; sourceTree = "<group>"; };
@@ -59,6 +61,7 @@
 				AA0000000000000000000053 /* MenuBarController.swift */,
 				AA0000000000000000000054 /* SettingsWindowController.swift */,
 				AA0000000000000000000055 /* WelcomeWindowController.swift */,
+				396662922F6425C70040C762 /* TextShortcutsStore.swift */,
 				AA0000000000000000000056 /* Info.plist */,
 				395153632F5B6DCC008D6426 /* AppIcon.icon */,
 			);
@@ -150,6 +153,7 @@
 				AA0000000000000000000063 /* MenuBarController.swift in Sources */,
 				AA0000000000000000000064 /* SettingsWindowController.swift in Sources */,
 				AA0000000000000000000065 /* WelcomeWindowController.swift in Sources */,
+				396662932F6425C70040C762 /* TextShortcutsStore.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
