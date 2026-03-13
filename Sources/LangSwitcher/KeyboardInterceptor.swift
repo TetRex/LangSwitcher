@@ -36,7 +36,19 @@ final class KeyboardInterceptor {
     func startEventTap() {
         guard eventTap == nil else { return }
 
-        let mask: CGEventMask = (1 << CGEventType.keyDown.rawValue)
+        // Reset word buffer when the user switches to a different app.
+        NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didActivateApplicationNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated { self?.currentWord = "" }
+        }
+
+        let mask: CGEventMask =
+            (1 << CGEventType.keyDown.rawValue)
+            | (1 << CGEventType.leftMouseDown.rawValue)
+            | (1 << CGEventType.rightMouseDown.rawValue)
 
         // Because CGEventTapCallback is a C function pointer we cannot capture
         // `self` directly. We pass it via the `userInfo` pointer instead.
@@ -78,24 +90,30 @@ final class KeyboardInterceptor {
     private static let tapCallback: CGEventTapCallBack = {
         proxy, type, event, userInfo in
 
-        // If the tap is disabled by the system, re‑enable it.
-        if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
-            if let userInfo {
-                let this = Unmanaged<KeyboardInterceptor>.fromOpaque(userInfo)
-                    .takeUnretainedValue()
-                if let tap = this.eventTap {
-                    CGEvent.tapEnable(tap: tap, enable: true)
-                }
-            }
-            return Unmanaged.passUnretained(event)
-        }
-
-        guard type == .keyDown, let userInfo else {
+        guard let userInfo else {
             return Unmanaged.passUnretained(event)
         }
 
         let interceptor = Unmanaged<KeyboardInterceptor>.fromOpaque(userInfo)
             .takeUnretainedValue()
+
+        // If the tap is disabled by the system, re‑enable it.
+        if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
+            if let tap = interceptor.eventTap {
+                CGEvent.tapEnable(tap: tap, enable: true)
+            }
+            return Unmanaged.passUnretained(event)
+        }
+
+        // Mouse clicks — reset word buffer (cursor moved to a new position).
+        if type == .leftMouseDown || type == .rightMouseDown {
+            interceptor.currentWord = ""
+            return Unmanaged.passUnretained(event)
+        }
+
+        guard type == .keyDown else {
+            return Unmanaged.passUnretained(event)
+        }
 
         return interceptor.handleKeyDown(event: event, proxy: proxy)
     }

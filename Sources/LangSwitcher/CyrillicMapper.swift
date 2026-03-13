@@ -129,6 +129,9 @@ enum CyrillicMapper {
 
     // MARK: - Spell checking
 
+    /// Unique tag so the spell checker doesn't accumulate shared state over time.
+    private static let spellDocumentTag: Int = NSSpellChecker.uniqueSpellDocumentTag()
+
     /// Cyrillic language codes to check against the macOS spell checker,
     /// filtered to only those actually available on this system.
     private static let cyrillicLanguages: [String] = {
@@ -149,7 +152,7 @@ enum CyrillicMapper {
                 startingAt: 0,
                 language: lang,
                 wrap: false,
-                inSpellDocumentWithTag: 0,
+                inSpellDocumentWithTag: spellDocumentTag,
                 wordCount: nil
             )
             if range.location == NSNotFound {
@@ -185,7 +188,7 @@ enum CyrillicMapper {
             startingAt: 0,
             language: "en",
             wrap: false,
-            inSpellDocumentWithTag: 0,
+            inSpellDocumentWithTag: spellDocumentTag,
             wordCount: nil
         )
         return range.location == NSNotFound
