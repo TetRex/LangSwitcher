@@ -41,12 +41,16 @@ final class SettingsWindowController: NSWindowController {
         self.currentModifiers = currentModifiers
 
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 480, height: 440),
-            styleMask: [.titled, .closable],
+            contentRect: NSRect(x: 0, y: 0, width: 460, height: 460),
+            styleMask: [.titled, .closable, .fullSizeContentView],
             backing: .buffered,
             defer: false
         )
-        window.title = "LangSwitcher Settings"
+        window.title = "LangSwitcher Prefernces"
+        window.titlebarAppearsTransparent = true
+        window.titleVisibility = .hidden
+        window.appearance = NSAppearance(named: .darkAqua)
+        window.backgroundColor = .black
         window.center()
         window.isReleasedWhenClosed = false
 
@@ -60,67 +64,83 @@ final class SettingsWindowController: NSWindowController {
 
     // MARK: - UI construction
 
+    // Convenience: small uppercase gray section header
+    private static func makeSectionHeader(_ text: String) -> NSTextField {
+        let label = NSTextField(labelWithString: text.uppercased())
+        label.font = .systemFont(ofSize: 10, weight: .semibold)
+        label.textColor = NSColor(white: 0.45, alpha: 1)
+        label.translatesAutoresizingMaskIntoConstraints = false
+        return label
+    }
+
     private func buildUI() {
         guard let contentView = window?.contentView else { return }
 
+        contentView.wantsLayer = true
+        contentView.layer?.backgroundColor = NSColor.black.cgColor
+
+        // App title at the top
+        let appTitle = NSTextField(labelWithString: "Preferences")
+        appTitle.font = .systemFont(ofSize: 15, weight: .semibold)
+        appTitle.textColor = .white
+        appTitle.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(appTitle)
+
         // — Force-convert shortcut section —
 
-        let titleLabel = NSTextField(labelWithString: "Force‑convert shortcut:")
-        titleLabel.font = .systemFont(ofSize: 13, weight: .medium)
-        titleLabel.translatesAutoresizingMaskIntoConstraints = false
-        contentView.addSubview(titleLabel)
+        let shortcutHeader = Self.makeSectionHeader("Force‑Convert Shortcut")
+        contentView.addSubview(shortcutHeader)
+
+        // Container gives the dark rounded background; the field sits centered inside it.
+        let shortcutContainer = NSView()
+        shortcutContainer.wantsLayer = true
+        shortcutContainer.layer?.backgroundColor = NSColor(white: 0.12, alpha: 1).cgColor
+        shortcutContainer.layer?.cornerRadius = 8
+        shortcutContainer.layer?.borderWidth = 1
+        shortcutContainer.layer?.borderColor = NSColor(white: 0.28, alpha: 1).cgColor
+        shortcutContainer.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(shortcutContainer)
 
         shortcutField.isEditable = false
         shortcutField.isSelectable = false
         shortcutField.alignment = .center
-        shortcutField.font = .monospacedSystemFont(ofSize: 14, weight: .regular)
-        shortcutField.isBezeled = true
-        shortcutField.bezelStyle = .roundedBezel
+        shortcutField.font = .monospacedSystemFont(ofSize: 15, weight: .medium)
+        shortcutField.isBezeled = false
+        shortcutField.drawsBackground = false
+        shortcutField.textColor = .white
         shortcutField.translatesAutoresizingMaskIntoConstraints = false
-        contentView.addSubview(shortcutField)
+        shortcutContainer.addSubview(shortcutField)
+
+        NSLayoutConstraint.activate([
+            shortcutField.centerYAnchor.constraint(equalTo: shortcutContainer.centerYAnchor),
+            shortcutField.leadingAnchor.constraint(equalTo: shortcutContainer.leadingAnchor, constant: 8),
+            shortcutField.trailingAnchor.constraint(equalTo: shortcutContainer.trailingAnchor, constant: -8),
+        ])
 
         let click = NSClickGestureRecognizer(target: self, action: #selector(startRecording))
-        shortcutField.addGestureRecognizer(click)
+        shortcutContainer.addGestureRecognizer(click)
 
         instructionLabel.font = .systemFont(ofSize: 11)
-        instructionLabel.textColor = .secondaryLabelColor
+        instructionLabel.textColor = NSColor(white: 0.45, alpha: 1)
         instructionLabel.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(instructionLabel)
 
         modeLabel.font = .systemFont(ofSize: 11)
-        modeLabel.textColor = .tertiaryLabelColor
+        modeLabel.textColor = NSColor(white: 0.3, alpha: 1)
         modeLabel.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(modeLabel)
 
-        NSLayoutConstraint.activate([
-            titleLabel.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 20),
-            titleLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
-
-            shortcutField.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 10),
-            shortcutField.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
-            shortcutField.widthAnchor.constraint(equalToConstant: 220),
-            shortcutField.heightAnchor.constraint(equalToConstant: 28),
-
-            instructionLabel.topAnchor.constraint(equalTo: shortcutField.bottomAnchor, constant: 8),
-            instructionLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
-            instructionLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
-
-            modeLabel.topAnchor.constraint(equalTo: instructionLabel.bottomAnchor, constant: 4),
-            modeLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
-            modeLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
-        ])
+        // Thin dark separator
+        let separatorView = NSView()
+        separatorView.wantsLayer = true
+        separatorView.layer?.backgroundColor = NSColor(white: 0.2, alpha: 1).cgColor
+        separatorView.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(separatorView)
 
         // — Text shortcuts section —
 
-        let separator = NSBox()
-        separator.boxType = .separator
-        separator.translatesAutoresizingMaskIntoConstraints = false
-        contentView.addSubview(separator)
-
-        let sectionLabel = NSTextField(labelWithString: "Text Shortcuts")
-        sectionLabel.font = .systemFont(ofSize: 13, weight: .medium)
-        sectionLabel.translatesAutoresizingMaskIntoConstraints = false
-        contentView.addSubview(sectionLabel)
+        let textShortcutsHeader = Self.makeSectionHeader("Text Shortcuts")
+        contentView.addSubview(textShortcutsHeader)
 
         let triggerCol = NSTableColumn(identifier: .init("trigger"))
         triggerCol.title = "Shortcut"
@@ -135,52 +155,91 @@ final class SettingsWindowController: NSWindowController {
         shortcutsTableView.addTableColumn(expansionCol)
         shortcutsTableView.delegate = self
         shortcutsTableView.dataSource = self
-        shortcutsTableView.usesAlternatingRowBackgroundColors = true
-        shortcutsTableView.rowHeight = 22
+        shortcutsTableView.usesAlternatingRowBackgroundColors = false
+        shortcutsTableView.backgroundColor = NSColor(white: 0.08, alpha: 1)
+        shortcutsTableView.rowHeight = 26
         shortcutsTableView.columnAutoresizingStyle = .lastColumnOnlyAutoresizingStyle
+        shortcutsTableView.gridStyleMask = .solidHorizontalGridLineMask
+        shortcutsTableView.gridColor = NSColor(white: 0.18, alpha: 1)
 
         shortcutsScrollView.documentView = shortcutsTableView
         shortcutsScrollView.hasVerticalScroller = true
-        shortcutsScrollView.borderType = .bezelBorder
+        shortcutsScrollView.borderType = .noBorder
+        shortcutsScrollView.drawsBackground = false
+        shortcutsScrollView.wantsLayer = true
+        shortcutsScrollView.layer?.cornerRadius = 8
+        shortcutsScrollView.layer?.borderWidth = 1
+        shortcutsScrollView.layer?.borderColor = NSColor(white: 0.22, alpha: 1).cgColor
         shortcutsScrollView.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(shortcutsScrollView)
 
-        addButton = NSButton(title: "", target: self, action: #selector(addShortcut))
-        addButton.bezelStyle = .smallSquare
-        addButton.image = NSImage(systemSymbolName: "plus", accessibilityDescription: "Add")
-        addButton.translatesAutoresizingMaskIntoConstraints = false
-        contentView.addSubview(addButton)
+        // Segmented +/− control
+        let segmented = NSSegmentedControl()
+        segmented.segmentCount = 2
+        segmented.setImage(NSImage(systemSymbolName: "plus", accessibilityDescription: "Add")!, forSegment: 0)
+        segmented.setImage(NSImage(systemSymbolName: "minus", accessibilityDescription: "Remove")!, forSegment: 1)
+        segmented.segmentStyle = .smallSquare
+        segmented.target = self
+        segmented.action = #selector(segmentedAction(_:))
+        segmented.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(segmented)
 
-        removeButton = NSButton(title: "", target: self, action: #selector(removeShortcut))
-        removeButton.bezelStyle = .smallSquare
-        removeButton.image = NSImage(systemSymbolName: "minus", accessibilityDescription: "Remove")
+        // Keep references so +/− can be controlled
+        addButton = NSButton(title: "+", target: self, action: #selector(addShortcut))
+        addButton.isHidden = true
+        removeButton = NSButton(title: "−", target: self, action: #selector(removeShortcut))
+        removeButton.isHidden = true
         removeButton.isEnabled = false
-        removeButton.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(addButton)
         contentView.addSubview(removeButton)
 
         NSLayoutConstraint.activate([
-            separator.topAnchor.constraint(equalTo: modeLabel.bottomAnchor, constant: 16),
-            separator.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
-            separator.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
+            // Center title in the transparent titlebar (≈28 pt tall)
+            appTitle.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
+            appTitle.centerYAnchor.constraint(equalTo: contentView.topAnchor, constant: 14),
 
-            sectionLabel.topAnchor.constraint(equalTo: separator.bottomAnchor, constant: 12),
-            sectionLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
+            // Content starts below the titlebar safe area
+            shortcutHeader.topAnchor.constraint(equalTo: contentView.safeAreaLayoutGuide.topAnchor, constant: 16),
+            shortcutHeader.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 22),
 
-            shortcutsScrollView.topAnchor.constraint(equalTo: sectionLabel.bottomAnchor, constant: 8),
-            shortcutsScrollView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
-            shortcutsScrollView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
-            shortcutsScrollView.bottomAnchor.constraint(equalTo: addButton.topAnchor, constant: -6),
+            shortcutContainer.topAnchor.constraint(equalTo: shortcutHeader.bottomAnchor, constant: 8),
+            shortcutContainer.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 22),
+            shortcutContainer.widthAnchor.constraint(equalToConstant: 180),
+            shortcutContainer.heightAnchor.constraint(equalToConstant: 36),
 
-            addButton.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
-            addButton.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -16),
-            addButton.widthAnchor.constraint(equalToConstant: 24),
-            addButton.heightAnchor.constraint(equalToConstant: 20),
+            instructionLabel.topAnchor.constraint(equalTo: shortcutContainer.bottomAnchor, constant: 8),
+            instructionLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 22),
+            instructionLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -22),
 
-            removeButton.leadingAnchor.constraint(equalTo: addButton.trailingAnchor, constant: 2),
-            removeButton.centerYAnchor.constraint(equalTo: addButton.centerYAnchor),
-            removeButton.widthAnchor.constraint(equalToConstant: 24),
-            removeButton.heightAnchor.constraint(equalToConstant: 20),
+            modeLabel.topAnchor.constraint(equalTo: instructionLabel.bottomAnchor, constant: 3),
+            modeLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 22),
+            modeLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -22),
+
+            separatorView.topAnchor.constraint(equalTo: modeLabel.bottomAnchor, constant: 18),
+            separatorView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 22),
+            separatorView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -22),
+            separatorView.heightAnchor.constraint(equalToConstant: 1),
+
+            textShortcutsHeader.topAnchor.constraint(equalTo: separatorView.bottomAnchor, constant: 14),
+            textShortcutsHeader.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 22),
+            textShortcutsHeader.centerYAnchor.constraint(equalTo: segmented.centerYAnchor),
+
+            segmented.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -22),
+            segmented.topAnchor.constraint(equalTo: separatorView.bottomAnchor, constant: 10),
+
+            shortcutsScrollView.topAnchor.constraint(equalTo: textShortcutsHeader.bottomAnchor, constant: 8),
+            shortcutsScrollView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 22),
+            shortcutsScrollView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -22),
+            shortcutsScrollView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -18),
         ])
+    }
+
+    @objc private func segmentedAction(_ sender: NSSegmentedControl) {
+        if sender.selectedSegment == 0 {
+            addShortcut()
+        } else {
+            removeShortcut()
+        }
     }
 
     // MARK: - Shortcut field display
@@ -373,6 +432,8 @@ extension SettingsWindowController: NSTableViewDelegate {
 
     func tableViewSelectionDidChange(_ notification: Notification) {
         removeButton.isEnabled = shortcutsTableView.selectedRow >= 0
+        // The segmented control doesn't disable individual segments automatically,
+        // so we keep removeButton.isEnabled in sync for the action handler.
     }
 
     // MARK: - Cell factory
@@ -387,6 +448,7 @@ extension SettingsWindowController: NSTableViewDelegate {
         tf.isBezeled = false
         tf.drawsBackground = false
         tf.font = .systemFont(ofSize: 13)
+        tf.textColor = .white
         tf.delegate = self
         tf.tag = columnTag   // 0 = trigger column, 1 = expansion column
         tf.translatesAutoresizingMaskIntoConstraints = false
