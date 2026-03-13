@@ -168,11 +168,20 @@ final class KeyboardInterceptor {
             return Unmanaged.passUnretained(event)
         }
 
-        // Space or Enter — check and potentially replace
+        // Space or Enter — check shortcuts, then fix layout
         if keyCode == kVK_Space || keyCode == kVK_Return {
             let word = currentWord
             currentWord = ""
 
+            // 1. Text shortcut expansion (highest priority)
+            if !word.isEmpty, let expansion = TextShortcutsStore.shared.expansion(for: word) {
+                replaceLastWord(charCount: word.count,
+                                replacement: expansion,
+                                trailingEvent: event)
+                return nil
+            }
+
+            // 2. Cyrillic → English correction
             if !CyrillicMapper.isValidCyrillicWordConsideringLatinOverlap(word),
                let english = CyrillicMapper.convertIncludingLatin(word),
                CyrillicMapper.isValidEnglishWord(english) {
@@ -183,6 +192,7 @@ final class KeyboardInterceptor {
                 return nil
             }
 
+            // 3. English → Cyrillic correction
             if !CyrillicMapper.isValidEnglishWord(word),
                let cyrillic = CyrillicMapper.convertEnglishMistypeToValidCyrillic(word) {
                 replaceLastWord(charCount: word.count,
