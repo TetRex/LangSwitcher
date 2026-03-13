@@ -8,18 +8,17 @@
 
 /* Begin PBXBuildFile section */
 		395153642F5B6DCC008D6426 /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 395153632F5B6DCC008D6426 /* AppIcon.icon */; };
-		AA0000000000000000000067 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000058 /* Assets.xcassets */; };
 		AA0000000000000000000060 /* CyrillicMapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000050 /* CyrillicMapper.swift */; };
 		AA0000000000000000000061 /* KeyboardInterceptor.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000051 /* KeyboardInterceptor.swift */; };
 		AA0000000000000000000062 /* LangSwitcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000052 /* LangSwitcher.swift */; };
 		AA0000000000000000000063 /* MenuBarController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000053 /* MenuBarController.swift */; };
 		AA0000000000000000000064 /* SettingsWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000054 /* SettingsWindowController.swift */; };
 		AA0000000000000000000065 /* WelcomeWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000055 /* WelcomeWindowController.swift */; };
+		AA0000000000000000000067 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000058 /* Assets.xcassets */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		395153632F5B6DCC008D6426 /* AppIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = AppIcon.icon; sourceTree = "<group>"; };
-		AA0000000000000000000058 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		AA0000000000000000000030 /* LangSwitcher.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = LangSwitcher.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		AA0000000000000000000050 /* CyrillicMapper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CyrillicMapper.swift; sourceTree = "<group>"; };
 		AA0000000000000000000051 /* KeyboardInterceptor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardInterceptor.swift; sourceTree = "<group>"; };
@@ -28,6 +27,7 @@
 		AA0000000000000000000054 /* SettingsWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsWindowController.swift; sourceTree = "<group>"; };
 		AA0000000000000000000055 /* WelcomeWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WelcomeWindowController.swift; sourceTree = "<group>"; };
 		AA0000000000000000000056 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		AA0000000000000000000058 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -281,7 +281,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 0.0.3;
+				MARKETING_VERSION = 0.2.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.tetrex.langSwitcher;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -303,7 +303,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 0.0.3;
+				MARKETING_VERSION = 0.2.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.tetrex.langSwitcher;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
