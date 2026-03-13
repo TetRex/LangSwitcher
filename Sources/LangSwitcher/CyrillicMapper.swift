@@ -167,6 +167,26 @@ enum CyrillicMapper {
         return false
     }
 
+    /// Returns the language code (e.g. "uk", "ru") of the first Cyrillic language
+    /// in which the word is valid, or `nil` if none match.
+    static func cyrillicWordLanguage(_ word: String) -> String? {
+        let checker = NSSpellChecker.shared
+        for lang in cyrillicLanguages {
+            let range = checker.checkSpelling(
+                of: word,
+                startingAt: 0,
+                language: lang,
+                wrap: false,
+                inSpellDocumentWithTag: spellDocumentTag,
+                wordCount: nil
+            )
+            if range.location == NSNotFound {
+                return lang
+            }
+        }
+        return nil
+    }
+
     /// Returns `true` if the word is valid in a Cyrillic language,
     /// also considering Latin lookalike letters inside the word.
     static func isValidCyrillicWordConsideringLatinOverlap(_ word: String) -> Bool {
