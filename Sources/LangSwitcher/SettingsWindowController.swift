@@ -1,8 +1,8 @@
 import AppKit
 import Carbon.HIToolbox
 
-/// A settings window that lets the user configure the force‑convert shortcut.
-/// Supports any key with optional modifiers (⌘, ⌥, ⌃, ⇧).
+/// A settings window that lets the user configure the force‑convert shortcut
+/// and manage custom text expansion shortcuts.
 @MainActor
 final class SettingsWindowController: NSWindowController {
 
@@ -11,7 +11,7 @@ final class SettingsWindowController: NSWindowController {
     private static let shortcutKeyCodeKey   = "ForceConvertKeyCode"
     private static let shortcutModifiersKey = "ForceConvertModifiers"
 
-    // MARK: - UI
+    // MARK: - UI — force-convert shortcut
 
     private let shortcutField = NSTextField()
     private let instructionLabel = NSTextField(labelWithString: "")
@@ -22,7 +22,14 @@ final class SettingsWindowController: NSWindowController {
     /// Called when the user picks a new shortcut.
     var onShortcutChanged: ((_ keyCode: Int, _ modifiers: UInt64) -> Void)?
 
-    // MARK: - Current value
+    // MARK: - UI — text shortcuts table
+
+    private let shortcutsTableView = NSTableView()
+    private let shortcutsScrollView = NSScrollView()
+    private var addButton: NSButton!
+    private var removeButton: NSButton!
+
+    // MARK: - Current shortcut value
 
     private var currentKeyCode: Int
     private var currentModifiers: UInt64   // raw CGEventFlags bits for ⌘⌥⌃⇧
@@ -34,7 +41,7 @@ final class SettingsWindowController: NSWindowController {
         self.currentModifiers = currentModifiers
 
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 400, height: 180),
+            contentRect: NSRect(x: 0, y: 0, width: 480, height: 440),
             styleMask: [.titled, .closable],
             backing: .buffered,
             defer: false
@@ -55,6 +62,8 @@ final class SettingsWindowController: NSWindowController {
 
     private func buildUI() {
         guard let contentView = window?.contentView else { return }
+
+        // — Force-convert shortcut section —
 
         let titleLabel = NSTextField(labelWithString: "Force‑convert shortcut:")
         titleLabel.font = .systemFont(ofSize: 13, weight: .medium)
@@ -100,9 +109,81 @@ final class SettingsWindowController: NSWindowController {
             modeLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
             modeLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
         ])
+
+        // — Text shortcuts section —
+
+        let separator = NSBox()
+        separator.boxType = .separator
+        separator.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(separator)
+
+        let sectionLabel = NSTextField(labelWithString: "Text Shortcuts")
+        sectionLabel.font = .systemFont(ofSize: 13, weight: .medium)
+        sectionLabel.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(sectionLabel)
+
+        let triggerCol = NSTableColumn(identifier: .init("trigger"))
+        triggerCol.title = "Shortcut"
+        triggerCol.width = 140
+        triggerCol.minWidth = 60
+
+        let expansionCol = NSTableColumn(identifier: .init("expansion"))
+        expansionCol.title = "Expands To"
+        expansionCol.minWidth = 120
+
+        shortcutsTableView.addTableColumn(triggerCol)
+        shortcutsTableView.addTableColumn(expansionCol)
+        shortcutsTableView.delegate = self
+        shortcutsTableView.dataSource = self
+        shortcutsTableView.usesAlternatingRowBackgroundColors = true
+        shortcutsTableView.rowHeight = 22
+        shortcutsTableView.columnAutoresizingStyle = .lastColumnOnlyAutoresizingStyle
+
+        shortcutsScrollView.documentView = shortcutsTableView
+        shortcutsScrollView.hasVerticalScroller = true
+        shortcutsScrollView.borderType = .bezelBorder
+        shortcutsScrollView.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(shortcutsScrollView)
+
+        addButton = NSButton(title: "", target: self, action: #selector(addShortcut))
+        addButton.bezelStyle = .smallSquare
+        addButton.image = NSImage(systemSymbolName: "plus", accessibilityDescription: "Add")
+        addButton.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(addButton)
+
+        removeButton = NSButton(title: "", target: self, action: #selector(removeShortcut))
+        removeButton.bezelStyle = .smallSquare
+        removeButton.image = NSImage(systemSymbolName: "minus", accessibilityDescription: "Remove")
+        removeButton.isEnabled = false
+        removeButton.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(removeButton)
+
+        NSLayoutConstraint.activate([
+            separator.topAnchor.constraint(equalTo: modeLabel.bottomAnchor, constant: 16),
+            separator.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
+            separator.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
+
+            sectionLabel.topAnchor.constraint(equalTo: separator.bottomAnchor, constant: 12),
+            sectionLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
+
+            shortcutsScrollView.topAnchor.constraint(equalTo: sectionLabel.bottomAnchor, constant: 8),
+            shortcutsScrollView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
+            shortcutsScrollView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
+            shortcutsScrollView.bottomAnchor.constraint(equalTo: addButton.topAnchor, constant: -6),
+
+            addButton.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
+            addButton.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -16),
+            addButton.widthAnchor.constraint(equalToConstant: 24),
+            addButton.heightAnchor.constraint(equalToConstant: 20),
+
+            removeButton.leadingAnchor.constraint(equalTo: addButton.trailingAnchor, constant: 2),
+            removeButton.centerYAnchor.constraint(equalTo: addButton.centerYAnchor),
+            removeButton.widthAnchor.constraint(equalToConstant: 24),
+            removeButton.heightAnchor.constraint(equalToConstant: 20),
+        ])
     }
 
-    // MARK: - Display
+    // MARK: - Shortcut field display
 
     private func updateFieldDisplay() {
         shortcutField.stringValue = Self.displayName(keyCode: currentKeyCode,
@@ -115,14 +196,13 @@ final class SettingsWindowController: NSWindowController {
             : "Mode: double‑tap"
     }
 
-    // MARK: - Recording
+    // MARK: - Shortcut recording
 
     @objc private func startRecording() {
         isRecording = true
         shortcutField.stringValue = "Press shortcut…"
         instructionLabel.stringValue = "Press Escape to cancel. Hold modifiers + key."
 
-        // Remove any prior monitor
         if let m = localMonitor { NSEvent.removeMonitor(m); localMonitor = nil }
 
         localMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
@@ -142,7 +222,6 @@ final class SettingsWindowController: NSWindowController {
             self.currentModifiers = mods
             self.updateFieldDisplay()
 
-            // Persist
             UserDefaults.standard.set(keyCode, forKey: Self.shortcutKeyCodeKey)
             UserDefaults.standard.set(Int64(bitPattern: mods), forKey: Self.shortcutModifiersKey)
 
@@ -151,6 +230,31 @@ final class SettingsWindowController: NSWindowController {
             if let m = self.localMonitor { NSEvent.removeMonitor(m); self.localMonitor = nil }
             return nil
         }
+    }
+
+    // MARK: - Text shortcuts actions
+
+    @objc private func addShortcut() {
+        let store = TextShortcutsStore.shared
+        store.add()
+        let newRow = store.shortcuts.count - 1
+        shortcutsTableView.reloadData()
+        shortcutsTableView.selectRowIndexes(IndexSet(integer: newRow), byExtendingSelection: false)
+        // Begin editing the trigger cell after the table has rendered the new row.
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            if let cell = self.shortcutsTableView.view(atColumn: 0, row: newRow, makeIfNecessary: false) as? NSTableCellView {
+                self.shortcutsTableView.window?.makeFirstResponder(cell.textField)
+            }
+        }
+    }
+
+    @objc private func removeShortcut() {
+        let row = shortcutsTableView.selectedRow
+        guard row >= 0 else { return }
+        TextShortcutsStore.shared.remove(at: row)
+        shortcutsTableView.reloadData()
+        removeButton.isEnabled = false
     }
 
     // MARK: - Persistence helpers
@@ -237,5 +341,87 @@ final class SettingsWindowController: NSWindowController {
 
     static func nameForKeyCode(_ keyCode: Int) -> String {
         keyNames[keyCode] ?? "Key \(keyCode)"
+    }
+}
+
+// MARK: - NSTableViewDataSource
+
+extension SettingsWindowController: NSTableViewDataSource {
+    func numberOfRows(in tableView: NSTableView) -> Int {
+        TextShortcutsStore.shared.shortcuts.count
+    }
+}
+
+// MARK: - NSTableViewDelegate
+
+extension SettingsWindowController: NSTableViewDelegate {
+
+    func tableView(_ tableView: NSTableView,
+                   viewFor tableColumn: NSTableColumn?,
+                   row: Int) -> NSView? {
+        let isTrigger = tableColumn?.identifier.rawValue == "trigger"
+        let cellID = NSUserInterfaceItemIdentifier(isTrigger ? "TriggerCell" : "ExpansionCell")
+
+        let cell = tableView.makeView(withIdentifier: cellID, owner: self) as? NSTableCellView
+                   ?? makeShortcutCell(identifier: cellID, columnTag: isTrigger ? 0 : 1)
+
+        let shortcuts = TextShortcutsStore.shared.shortcuts
+        guard shortcuts.indices.contains(row) else { return cell }
+        cell.textField?.stringValue = isTrigger ? shortcuts[row].trigger : shortcuts[row].expansion
+        return cell
+    }
+
+    func tableViewSelectionDidChange(_ notification: Notification) {
+        removeButton.isEnabled = shortcutsTableView.selectedRow >= 0
+    }
+
+    // MARK: - Cell factory
+
+    private func makeShortcutCell(identifier: NSUserInterfaceItemIdentifier,
+                                   columnTag: Int) -> NSTableCellView {
+        let cell = NSTableCellView()
+        cell.identifier = identifier
+
+        let tf = NSTextField()
+        tf.isEditable = true
+        tf.isBezeled = false
+        tf.drawsBackground = false
+        tf.font = .systemFont(ofSize: 13)
+        tf.delegate = self
+        tf.tag = columnTag   // 0 = trigger column, 1 = expansion column
+        tf.translatesAutoresizingMaskIntoConstraints = false
+
+        cell.addSubview(tf)
+        cell.textField = tf
+
+        NSLayoutConstraint.activate([
+            tf.leadingAnchor.constraint(equalTo: cell.leadingAnchor, constant: 4),
+            tf.trailingAnchor.constraint(equalTo: cell.trailingAnchor, constant: -4),
+            tf.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
+        ])
+
+        return cell
+    }
+}
+
+// MARK: - NSTextFieldDelegate (inline cell editing)
+
+extension SettingsWindowController: NSTextFieldDelegate {
+    func controlTextDidEndEditing(_ obj: Notification) {
+        guard let tf = obj.object as? NSTextField,
+              let cellView = tf.superview else { return }
+
+        let row = shortcutsTableView.row(for: cellView)
+        guard row >= 0 else { return }
+
+        let store = TextShortcutsStore.shared
+        guard store.shortcuts.indices.contains(row) else { return }
+
+        let current = store.shortcuts[row]
+        if tf.tag == 0 {
+            store.update(at: row, trigger: tf.stringValue, expansion: current.expansion)
+        } else {
+            store.update(at: row, trigger: current.trigger, expansion: tf.stringValue)
+        }
     }
 }
