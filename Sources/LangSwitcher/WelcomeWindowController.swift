@@ -28,12 +28,16 @@ final class WelcomeWindowController: NSWindowController {
         self.currentModifiers = currentModifiers
 
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 150, height: 580),
-            styleMask: [.titled, .closable],
+            contentRect: NSRect(x: 0, y: 0, width: 360, height: 560),
+            styleMask: [.titled, .closable, .fullSizeContentView],
             backing: .buffered,
             defer: false
         )
-        window.title = "LangSwitcher"
+        window.title = ""
+        window.titlebarAppearsTransparent = true
+        window.titleVisibility = .hidden
+        window.appearance = NSAppearance(named: .darkAqua)
+        window.backgroundColor = .black
         window.center()
         window.isReleasedWhenClosed = false
 
@@ -47,152 +51,292 @@ final class WelcomeWindowController: NSWindowController {
 
     // MARK: - UIs
 
+    private static func makeSectionHeader(_ text: String) -> NSTextField {
+        let label = NSTextField(labelWithString: text.uppercased())
+        label.font = .systemFont(ofSize: 10, weight: .semibold)
+        label.textColor = NSColor(white: 0.45, alpha: 1)
+        label.translatesAutoresizingMaskIntoConstraints = false
+        return label
+    }
+
+    private static func makeSeparator() -> NSView {
+        let v = NSView()
+        v.wantsLayer = true
+        v.layer?.backgroundColor = NSColor(white: 0.18, alpha: 1).cgColor
+        v.translatesAutoresizingMaskIntoConstraints = false
+        return v
+    }
+
+    /// Small numbered circle badge for step indicators.
+    private static func makeStepBadge(_ number: String) -> NSView {
+        let badge = NSView()
+        badge.wantsLayer = true
+        badge.layer?.backgroundColor = NSColor.systemBlue.withAlphaComponent(0.85).cgColor
+        badge.layer?.cornerRadius = 10
+        badge.translatesAutoresizingMaskIntoConstraints = false
+
+        let label = NSTextField(labelWithString: number)
+        label.font = .systemFont(ofSize: 11, weight: .bold)
+        label.textColor = .white
+        label.alignment = .center
+        label.translatesAutoresizingMaskIntoConstraints = false
+        badge.addSubview(label)
+
+        NSLayoutConstraint.activate([
+            label.centerXAnchor.constraint(equalTo: badge.centerXAnchor),
+            label.centerYAnchor.constraint(equalTo: badge.centerYAnchor),
+        ])
+        return badge
+    }
+
     private func buildUI() {
         guard let contentView = window?.contentView else { return }
 
         contentView.wantsLayer = true
         contentView.layer?.backgroundColor = NSColor.black.cgColor
 
+        // — Titlebar placeholder —
+        let titleLabel = NSTextField(labelWithString: "")
+        titleLabel.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(titleLabel)
+
+        // — Hero: icon + name + subtitle —
         let appIconView = NSImageView()
-        let appIcon = NSImage(named: "AppIconImage")
-        appIconView.image = appIcon
+        appIconView.image = NSImage(named: "AppIconImage")
         appIconView.imageScaling = .scaleProportionallyUpOrDown
         appIconView.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(appIconView)
 
         let appNameLabel = NSTextField(labelWithString: "LangSwitcher")
-        appNameLabel.font = .systemFont(ofSize: 26, weight: .bold)
+        appNameLabel.font = .systemFont(ofSize: 22, weight: .bold)
         appNameLabel.textColor = .white
         appNameLabel.alignment = .center
         appNameLabel.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(appNameLabel)
 
-        let shortcutLabel = NSTextField(labelWithString: "Shortcut")
-        shortcutLabel.font = .systemFont(ofSize: 13, weight: .semibold)
-        shortcutLabel.textColor = .white
-        shortcutLabel.translatesAutoresizingMaskIntoConstraints = false
-        contentView.addSubview(shortcutLabel)
+        let subtitleLabel = NSTextField(labelWithString: "Smart keyboard layout switcher for macOS")
+        subtitleLabel.font = .systemFont(ofSize: 12)
+        subtitleLabel.textColor = NSColor(white: 0.5, alpha: 1)
+        subtitleLabel.alignment = .center
+        subtitleLabel.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(subtitleLabel)
+
+        // — Separator 1 —
+        let sep1 = Self.makeSeparator()
+        contentView.addSubview(sep1)
+
+        // — Step 1: Shortcut —
+        let badge1 = Self.makeStepBadge("1")
+        contentView.addSubview(badge1)
+
+        let shortcutHeader = Self.makeSectionHeader("Force‑Convert Shortcut")
+        contentView.addSubview(shortcutHeader)
+
+        let shortcutHintLabel = NSTextField(labelWithString: "Press while typing to instantly convert the current word to the correct layout.")
+        shortcutHintLabel.font = .systemFont(ofSize: 12)
+        shortcutHintLabel.textColor = NSColor(white: 0.55, alpha: 1)
+        shortcutHintLabel.maximumNumberOfLines = 3
+        shortcutHintLabel.lineBreakMode = .byWordWrapping
+        shortcutHintLabel.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(shortcutHintLabel)
+
+        let shortcutContainer = NSView()
+        shortcutContainer.wantsLayer = true
+        shortcutContainer.layer?.backgroundColor = NSColor(white: 0.12, alpha: 1).cgColor
+        shortcutContainer.layer?.cornerRadius = 8
+        shortcutContainer.layer?.borderWidth = 1
+        shortcutContainer.layer?.borderColor = NSColor(white: 0.28, alpha: 1).cgColor
+        shortcutContainer.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(shortcutContainer)
 
         shortcutField.isEditable = false
         shortcutField.isSelectable = false
         shortcutField.alignment = .center
-        shortcutField.font = .monospacedSystemFont(ofSize: 18, weight: .medium)
-        shortcutField.isBezeled = true
-        shortcutField.bezelStyle = .roundedBezel
+        shortcutField.font = .monospacedSystemFont(ofSize: 13, weight: .medium)
+        shortcutField.isBezeled = false
+        shortcutField.drawsBackground = false
         shortcutField.textColor = .white
-        shortcutField.backgroundColor = NSColor(white: 0.12, alpha: 1.0)
-        shortcutField.drawsBackground = true
         shortcutField.translatesAutoresizingMaskIntoConstraints = false
-        contentView.addSubview(shortcutField)
+        shortcutContainer.addSubview(shortcutField)
+
+        NSLayoutConstraint.activate([
+            shortcutField.centerYAnchor.constraint(equalTo: shortcutContainer.centerYAnchor),
+            shortcutField.leadingAnchor.constraint(equalTo: shortcutContainer.leadingAnchor, constant: 6),
+            shortcutField.trailingAnchor.constraint(equalTo: shortcutContainer.trailingAnchor, constant: -6),
+        ])
 
         let click = NSClickGestureRecognizer(target: self, action: #selector(startRecordingShortcut))
-        shortcutField.addGestureRecognizer(click)
+        shortcutContainer.addGestureRecognizer(click)
 
-        let separator1 = NSBox()
-        separator1.boxType = .separator
-        separator1.translatesAutoresizingMaskIntoConstraints = false
-        contentView.addSubview(separator1)
+        // — Separator 2 —
+        let sep2 = Self.makeSeparator()
+        contentView.addSubview(sep2)
 
-        let separator1b = NSBox()
-        separator1b.boxType = .separator
-        separator1b.translatesAutoresizingMaskIntoConstraints = false
-        contentView.addSubview(separator1b)
+        // — Step 2: Accessibility —
+        let badge2 = Self.makeStepBadge("2")
+        contentView.addSubview(badge2)
 
-        let grantSectionHeader = NSTextField(labelWithString: "Accessibility Permission")
-        grantSectionHeader.font = .systemFont(ofSize: 13, weight: .semibold)
-        grantSectionHeader.textColor = .white
-        grantSectionHeader.translatesAutoresizingMaskIntoConstraints = false
-        contentView.addSubview(grantSectionHeader)
+        let accessHeader = Self.makeSectionHeader("Accessibility Permission")
+        contentView.addSubview(accessHeader)
 
-        let grantHelpLabel = NSTextField(labelWithString: "Opens Accessibility settings. Turn on LangSwitcher and return here.")
-        grantHelpLabel.font = .systemFont(ofSize: 11, weight: .regular)
-        grantHelpLabel.textColor = NSColor(white: 0.72, alpha: 1.0)
-        grantHelpLabel.alignment = .left
-        grantHelpLabel.maximumNumberOfLines = 3
+        let grantHelpLabel = NSTextField(labelWithString: "Required to read and replace typed text. Enable LangSwitcher in System Settings.")
+        grantHelpLabel.font = .systemFont(ofSize: 12)
+        grantHelpLabel.textColor = NSColor(white: 0.55, alpha: 1)
+        grantHelpLabel.maximumNumberOfLines = 2
         grantHelpLabel.lineBreakMode = .byWordWrapping
         grantHelpLabel.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(grantHelpLabel)
 
-        let grantButton = NSButton(title: "Grant Access",
-                                   target: self,
-                                   action: #selector(grantAccessibility))
-        grantButton.bezelStyle = .rounded
-        grantButton.contentTintColor = .white
-        grantButton.bezelColor = NSColor(white: 0.2, alpha: 1.0)
+        let grantButton = NSButton(title: "Open Settings", target: self, action: #selector(grantAccessibility))
+        grantButton.isBordered = false
+        grantButton.wantsLayer = true
+        grantButton.layer?.backgroundColor = NSColor(white: 0.18, alpha: 1).cgColor
+        grantButton.layer?.cornerRadius = 7
+        grantButton.layer?.borderWidth = 1
+        grantButton.layer?.borderColor = NSColor(white: 0.35, alpha: 1).cgColor
+        grantButton.layer?.masksToBounds = true
+        grantButton.attributedTitle = NSAttributedString(
+            string: "Open Settings",
+            attributes: [
+                .font: NSFont.systemFont(ofSize: 12, weight: .medium),
+                .foregroundColor: NSColor.white,
+            ]
+        )
         grantButton.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(grantButton)
 
-        let separator2 = NSBox()
-        separator2.boxType = .separator
-        separator2.translatesAutoresizingMaskIntoConstraints = false
-        contentView.addSubview(separator2)
+        // — Separator 3 —
+        let sep3 = Self.makeSeparator()
+        contentView.addSubview(sep3)
 
-        let startButton = NSButton(title: "Start",
-                                   target: self,
-                                   action: #selector(dismissWelcome))
+        // — Step 3: Text Shortcuts —
+        let badge3 = Self.makeStepBadge("3")
+        contentView.addSubview(badge3)
+
+        let textShortcutsHeader = Self.makeSectionHeader("Text Shortcuts")
+        contentView.addSubview(textShortcutsHeader)
+
+        let textShortcutsHintLabel = NSTextField(labelWithString: "Type a trigger word and it expands automatically. Add your own shortcuts in Preferences.")
+        textShortcutsHintLabel.font = .systemFont(ofSize: 12)
+        textShortcutsHintLabel.textColor = NSColor(white: 0.55, alpha: 1)
+        textShortcutsHintLabel.maximumNumberOfLines = 2
+        textShortcutsHintLabel.lineBreakMode = .byWordWrapping
+        textShortcutsHintLabel.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(textShortcutsHintLabel)
+
+        // — Separator 4 —
+        let sep4 = Self.makeSeparator()
+        contentView.addSubview(sep4)
+
+        // — Start button —
+        let startButton = NSButton(title: "Start", target: self, action: #selector(dismissWelcome))
         startButton.isBordered = false
         startButton.wantsLayer = true
         startButton.layer?.backgroundColor = NSColor.systemBlue.cgColor
-        startButton.layer?.cornerRadius = 16
+        startButton.layer?.cornerRadius = 8
         startButton.layer?.masksToBounds = true
         startButton.attributedTitle = NSAttributedString(
             string: "Start",
             attributes: [
-                .font: NSFont.systemFont(ofSize: 24, weight: .bold),
-                .foregroundColor: NSColor.white
+                .font: NSFont.systemFont(ofSize: 15, weight: .semibold),
+                .foregroundColor: NSColor.white,
             ]
         )
         startButton.keyEquivalent = "\r"
         startButton.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(startButton)
 
-        let startButtonWidth: CGFloat = 150
-        let startButtonHeight: CGFloat = 60
-
         NSLayoutConstraint.activate([
-            appIconView.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 20),
-            appIconView.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
-            appIconView.widthAnchor.constraint(equalToConstant: 96),
-            appIconView.heightAnchor.constraint(equalToConstant: 96),
+            titleLabel.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
+            titleLabel.centerYAnchor.constraint(equalTo: contentView.topAnchor, constant: 14),
 
-            appNameLabel.topAnchor.constraint(equalTo: appIconView.bottomAnchor, constant: 12),
+            // Hero area
+            appIconView.topAnchor.constraint(equalTo: contentView.safeAreaLayoutGuide.topAnchor, constant: 22),
+            appIconView.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
+            appIconView.widthAnchor.constraint(equalToConstant: 80),
+            appIconView.heightAnchor.constraint(equalToConstant: 80),
+
+            appNameLabel.topAnchor.constraint(equalTo: appIconView.bottomAnchor, constant: 10),
             appNameLabel.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
 
-            separator1.topAnchor.constraint(equalTo: appNameLabel.bottomAnchor, constant: 20),
-            separator1.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
-            separator1.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
+            subtitleLabel.topAnchor.constraint(equalTo: appNameLabel.bottomAnchor, constant: 4),
+            subtitleLabel.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
 
-            shortcutLabel.topAnchor.constraint(equalTo: separator1.bottomAnchor, constant: 16),
-            shortcutLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
+            sep1.topAnchor.constraint(equalTo: subtitleLabel.bottomAnchor, constant: 22),
+            sep1.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 22),
+            sep1.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -22),
+            sep1.heightAnchor.constraint(equalToConstant: 1),
 
-            shortcutField.topAnchor.constraint(equalTo: shortcutLabel.bottomAnchor, constant: 10),
-            shortcutField.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
-            shortcutField.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
-            shortcutField.heightAnchor.constraint(equalToConstant: 46),
+            // Step 1 header row
+            badge1.topAnchor.constraint(equalTo: sep1.bottomAnchor, constant: 16),
+            badge1.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 22),
+            badge1.widthAnchor.constraint(equalToConstant: 20),
+            badge1.heightAnchor.constraint(equalToConstant: 20),
 
-            separator1b.topAnchor.constraint(equalTo: shortcutField.bottomAnchor, constant: 16),
-            separator1b.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
-            separator1b.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
+            shortcutHeader.centerYAnchor.constraint(equalTo: badge1.centerYAnchor),
+            shortcutHeader.leadingAnchor.constraint(equalTo: badge1.trailingAnchor, constant: 8),
 
-            grantSectionHeader.topAnchor.constraint(equalTo: separator1b.bottomAnchor, constant: 14),
-            grantSectionHeader.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
+            // Hint text (left) + shortcut box (right)
+            shortcutHintLabel.topAnchor.constraint(equalTo: badge1.bottomAnchor, constant: 10),
+            shortcutHintLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 22),
+            shortcutHintLabel.trailingAnchor.constraint(equalTo: shortcutContainer.leadingAnchor, constant: -12),
 
-            grantHelpLabel.topAnchor.constraint(equalTo: grantSectionHeader.bottomAnchor, constant: 8),
-            grantHelpLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
+            shortcutContainer.centerYAnchor.constraint(equalTo: shortcutHintLabel.centerYAnchor),
+            shortcutContainer.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -22),
+            shortcutContainer.widthAnchor.constraint(equalToConstant: 100),
+            shortcutContainer.heightAnchor.constraint(equalToConstant: 34),
+
+            sep2.topAnchor.constraint(equalTo: shortcutHintLabel.bottomAnchor, constant: 18),
+            sep2.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 22),
+            sep2.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -22),
+            sep2.heightAnchor.constraint(equalToConstant: 1),
+
+            // Step 2 header row
+            badge2.topAnchor.constraint(equalTo: sep2.bottomAnchor, constant: 16),
+            badge2.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 22),
+            badge2.widthAnchor.constraint(equalToConstant: 20),
+            badge2.heightAnchor.constraint(equalToConstant: 20),
+
+            accessHeader.centerYAnchor.constraint(equalTo: badge2.centerYAnchor),
+            accessHeader.leadingAnchor.constraint(equalTo: badge2.trailingAnchor, constant: 8),
+
+            grantHelpLabel.topAnchor.constraint(equalTo: badge2.bottomAnchor, constant: 10),
+            grantHelpLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 22),
             grantHelpLabel.trailingAnchor.constraint(equalTo: grantButton.leadingAnchor, constant: -12),
 
             grantButton.centerYAnchor.constraint(equalTo: grantHelpLabel.centerYAnchor),
-            grantButton.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
-            grantButton.widthAnchor.constraint(equalToConstant: 110),
+            grantButton.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -22),
+            grantButton.widthAnchor.constraint(equalToConstant: 120),
+            grantButton.heightAnchor.constraint(equalToConstant: 30),
 
-            separator2.topAnchor.constraint(equalTo: grantHelpLabel.bottomAnchor, constant: 20),
-            separator2.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
-            separator2.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
+            sep3.topAnchor.constraint(equalTo: grantHelpLabel.bottomAnchor, constant: 18),
+            sep3.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 22),
+            sep3.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -22),
+            sep3.heightAnchor.constraint(equalToConstant: 1),
 
+            // Step 3 header row
+            badge3.topAnchor.constraint(equalTo: sep3.bottomAnchor, constant: 16),
+            badge3.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 22),
+            badge3.widthAnchor.constraint(equalToConstant: 20),
+            badge3.heightAnchor.constraint(equalToConstant: 20),
+
+            textShortcutsHeader.centerYAnchor.constraint(equalTo: badge3.centerYAnchor),
+            textShortcutsHeader.leadingAnchor.constraint(equalTo: badge3.trailingAnchor, constant: 8),
+
+            textShortcutsHintLabel.topAnchor.constraint(equalTo: badge3.bottomAnchor, constant: 10),
+            textShortcutsHintLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 22),
+            textShortcutsHintLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -22),
+
+            sep4.topAnchor.constraint(equalTo: textShortcutsHintLabel.bottomAnchor, constant: 18),
+            sep4.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 22),
+            sep4.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -22),
+            sep4.heightAnchor.constraint(equalToConstant: 1),
+
+            startButton.topAnchor.constraint(greaterThanOrEqualTo: sep4.bottomAnchor, constant: 16),
             startButton.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
+            startButton.widthAnchor.constraint(equalToConstant: 160),
+            startButton.heightAnchor.constraint(equalToConstant: 36),
             startButton.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -20),
-            startButton.widthAnchor.constraint(equalToConstant: startButtonWidth),
-            startButton.heightAnchor.constraint(equalToConstant: startButtonHeight),
         ])
     }
 
