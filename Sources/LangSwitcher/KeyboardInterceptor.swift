@@ -170,8 +170,10 @@ final class KeyboardInterceptor {
             }
         }
 
-        // Let other modifier combos (Cmd+C, etc.) pass through untouched.
-        if eventMods != 0 {
+        // Let command modifier combos (Cmd+C, Ctrl+A, Opt+A, etc.) pass through untouched.
+        // Shift alone is not a command — it just produces uppercase letters, so we allow it through.
+        let commandMods = eventMods & ~CGEventFlags.maskShift.rawValue
+        if commandMods != 0 {
             return Unmanaged.passUnretained(event)
         }
 
