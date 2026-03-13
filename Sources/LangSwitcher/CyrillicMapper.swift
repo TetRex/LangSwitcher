@@ -69,6 +69,14 @@ enum CyrillicMapper {
         "H": ["Р"], "J": ["О"], "K": ["Л"], "L": ["Д"],
         "Z": ["Я"], "X": ["Ч"], "C": ["С"], "V": ["М"], "B": ["И"],
         "N": ["Т"], "M": ["Ь"],
+        // Punctuation keys that produce Cyrillic letters on RU/UK layouts
+        ",": ["б"], "<": ["Б"],
+        ".": ["ю"], ">": ["Ю"],
+        ";": ["ж"], ":": ["Ж"],
+        "'": ["э", "є"], "\"": ["Э", "Є"],
+        "[": ["х"], "{": ["Х"],
+        "]": ["ъ", "ї"], "}": ["Ъ", "Ї"],
+        "`": ["ё", "ґ"], "~": ["Ё", "Ґ"],
     ]
 
     /// Returns `true` when every character in the word is a Cyrillic letter.
@@ -113,10 +121,7 @@ enum CyrillicMapper {
     /// Converts a mistyped English QWERTY word to a valid Cyrillic word
     /// when possible (e.g. `ghbdtn` -> `привет`).
     static func convertEnglishMistypeToValidCyrillic(_ word: String) -> String? {
-        guard !word.isEmpty,
-              word.allSatisfy({ $0.isASCII && $0.isLetter }) else {
-            return nil
-        }
+        guard !word.isEmpty else { return nil }
 
         for candidate in buildCyrillicCandidates(from: word) {
             if isValidCyrillicWord(candidate) {
