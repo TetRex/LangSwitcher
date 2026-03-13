@@ -33,15 +33,3 @@ After a correction, LangSwitcher automatically switches the active keyboard layo
 - macOS 13 Ventura or later
 - Accessibility permission (the app prompts on first launch)
 
-## Building
-
-LangSwitcher uses Swift Package Manager (Swift 6.2):
-
-```bash
-swift build -c release
-```
-
-Or open the Xcode project and build from there.
-
-> On first launch macOS may show a Gatekeeper warning. Right-click the app → **Open** to bypass it.
-
