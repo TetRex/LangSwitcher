@@ -6,7 +6,6 @@ final class MenuBarController {
 
     private let statusItem: NSStatusItem
     private let interceptor: KeyboardInterceptor
-    private var toggleItem: NSMenuItem!
     private var settingsController: SettingsWindowController?
     private var welcomeController: WelcomeWindowController?
 
@@ -20,7 +19,6 @@ final class MenuBarController {
         }
 
         buildMenu()
-        updateIcon()
 
         // Show welcome only if Accessibility permission hasn't been granted yet.
         if !WelcomeWindowController.isAccessibilityGranted {
@@ -30,48 +28,50 @@ final class MenuBarController {
 
     // MARK: - Menu
 
+    private static func menuItem(title: String,
+                                  symbol: String,
+                                  action: Selector,
+                                  key: String,
+                                  target: AnyObject) -> NSMenuItem {
+        let item = NSMenuItem(title: title, action: action, keyEquivalent: key)
+        item.target = target
+        item.image = NSImage(systemSymbolName: symbol, accessibilityDescription: title)
+        return item
+    }
+
     private func buildMenu() {
         let menu = NSMenu()
 
-        toggleItem = NSMenuItem(title: "Enabled",
-                                action: #selector(toggleEnabled),
-                                keyEquivalent: "")
-        toggleItem.target = self
-        toggleItem.state = interceptor.isEnabled ? .on : .off
-        menu.addItem(toggleItem)
+        menu.addItem(Self.menuItem(title: "Preferences",
+                                   symbol: "gearshape",
+                                   action: #selector(openSettings),
+                                   key: ",",
+                                   target: self))
+
+        menu.addItem(Self.menuItem(title: "About",
+                                   symbol: "info.circle",
+                                   action: #selector(showAbout),
+                                   key: "",
+                                   target: self))
+
+        menu.addItem(Self.menuItem(title: "Welcome",
+                                   symbol: "hand.wave",
+                                   action: #selector(openWelcome),
+                                   key: "",
+                                   target: self))
 
         menu.addItem(.separator())
 
-        let settings = NSMenuItem(title: "Settings…",
-                                  action: #selector(openSettings),
-                                  keyEquivalent: ",")
-        settings.target = self
-        menu.addItem(settings)
-
-        let about = NSMenuItem(title: "About LangSwitcher",
-                               action: #selector(showAbout),
-                               keyEquivalent: "")
-        about.target = self
-        menu.addItem(about)
-
-        menu.addItem(.separator())
-
-        let quit = NSMenuItem(title: "Quit",
-                              action: #selector(quitApp),
-                              keyEquivalent: "q")
-        quit.target = self
-        menu.addItem(quit)
+        menu.addItem(Self.menuItem(title: "Quit",
+                                   symbol: "xmark.circle",
+                                   action: #selector(quitApp),
+                                   key: "q",
+                                   target: self))
 
         statusItem.menu = menu
     }
 
     // MARK: - Actions
-
-    @objc private func toggleEnabled() {
-        interceptor.isEnabled.toggle()
-        toggleItem.state = interceptor.isEnabled ? .on : .off
-        updateIcon()
-    }
 
     @objc private func openSettings() {
         if settingsController == nil {
@@ -145,14 +145,4 @@ final class MenuBarController {
         NSApp.activate(ignoringOtherApps: true)
     }
 
-    // MARK: - Helpers
-
-    private func updateIcon() {
-        guard let button = statusItem.button else { return }
-        let symbolName = interceptor.isEnabled ? "keyboard" : "keyboard.chevron.compact.left"
-        button.image = NSImage(systemSymbolName: symbolName,
-                               accessibilityDescription: "LangSwitcher")
-        // Add a subtle visual cue: dim when disabled
-        button.appearsDisabled = !interceptor.isEnabled
-    }
 }
