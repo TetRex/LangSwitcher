@@ -54,11 +54,6 @@ final class MenuBarController {
                                    key: "",
                                    target: self))
 
-        menu.addItem(Self.menuItem(title: "Welcome",
-                                   symbol: "hand.wave",
-                                   action: #selector(openWelcome),
-                                   key: "",
-                                   target: self))
 
         menu.addItem(.separator())
 
