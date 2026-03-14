@@ -201,10 +201,10 @@ final class KeyboardInterceptor {
                 return nil
             }
 
-            // 2. Cyrillic → English correction
+            // 2. Cyrillic → English correction (also accepts shell commands)
             if !CyrillicMapper.isValidCyrillicWordConsideringLatinOverlap(word),
                let english = CyrillicMapper.convertIncludingLatin(word),
-               CyrillicMapper.isValidEnglishWord(english) {
+               CyrillicMapper.isValidEnglishWord(english) || CyrillicMapper.isShellCommand(english) {
                 replaceLastWord(charCount: word.count,
                                 replacement: english,
                                 trailingEvent: event)
@@ -212,8 +212,9 @@ final class KeyboardInterceptor {
                 return nil
             }
 
-            // 3. English → Cyrillic correction
+            // 3. English → Cyrillic correction (skip known shell commands)
             if !CyrillicMapper.isValidEnglishWord(word),
+               !CyrillicMapper.isShellCommand(word),
                let cyrillic = CyrillicMapper.convertEnglishMistypeToValidCyrillic(word) {
                 replaceLastWord(charCount: word.count,
                                 replacement: cyrillic,

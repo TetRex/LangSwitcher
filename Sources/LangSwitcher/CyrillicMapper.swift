@@ -204,6 +204,45 @@ enum CyrillicMapper {
         return isValidCyrillicWord(normalized)
     }
 
+    // MARK: - Shell command validation
+
+    /// Common bash / zsh built-in commands that have no executable on disk.
+    private static let shellBuiltins: Set<String> = [
+        "cd", "echo", "export", "source", "alias", "unalias", "history",
+        "jobs", "fg", "bg", "kill", "wait", "exit", "logout", "set", "unset",
+        "read", "printf", "type", "pwd", "pushd", "popd", "dirs",
+        "exec", "eval", "shift", "return", "break", "continue", "let",
+        "declare", "typeset", "local", "readonly", "getopts", "enable",
+        "help", "builtin", "command", "hash", "test", "trap", "ulimit",
+        "umask", "disown", "suspend", "print", "setopt", "unsetopt",
+        "autoload", "bindkey", "compdef", "emulate", "rehash", "which",
+    ]
+
+    /// Directories searched for installed executables (in addition to built-ins).
+    private static let shellCommandDirs = [
+        "/bin", "/usr/bin", "/usr/local/bin",
+        "/sbin", "/usr/sbin",
+        "/opt/homebrew/bin", "/opt/homebrew/sbin",
+    ]
+
+    /// Returns `true` when `word` is a shell built-in or an executable found
+    /// in common PATH directories. Only accepts words made of letters, digits,
+    /// hyphens, underscores, and dots (valid command-name characters).
+    static func isShellCommand(_ word: String) -> Bool {
+        guard !word.isEmpty,
+              word.unicodeScalars.allSatisfy({ $0.value < 128 }),   // ASCII only
+              word.allSatisfy({ $0.isLetter || $0.isNumber || $0 == "-" || $0 == "_" || $0 == "." })
+        else { return false }
+
+        if shellBuiltins.contains(word) { return true }
+
+        let fm = FileManager.default
+        for dir in shellCommandDirs {
+            if fm.isExecutableFile(atPath: dir + "/" + word) { return true }
+        }
+        return false
+    }
+
     /// Returns `true` when the word is a valid English word according to
     /// the macOS spell checker.
     static func isValidEnglishWord(_ word: String) -> Bool {
