@@ -89,6 +89,47 @@ final class WelcomeWindowController: NSWindowController {
         return badge
     }
 
+    private static func makeFeatureRow(symbol: String, title: String, description: String) -> NSView {
+        let container = NSView()
+        container.translatesAutoresizingMaskIntoConstraints = false
+
+        let icon = NSImageView()
+        icon.image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil)
+        icon.contentTintColor = NSColor.systemBlue.withAlphaComponent(0.9)
+        icon.translatesAutoresizingMaskIntoConstraints = false
+        container.addSubview(icon)
+
+        let titleLabel = NSTextField(labelWithString: title)
+        titleLabel.font = .systemFont(ofSize: 12, weight: .medium)
+        titleLabel.textColor = .white
+        titleLabel.translatesAutoresizingMaskIntoConstraints = false
+        container.addSubview(titleLabel)
+
+        let descLabel = NSTextField(labelWithString: description)
+        descLabel.font = .systemFont(ofSize: 11)
+        descLabel.textColor = NSColor(white: 0.48, alpha: 1)
+        descLabel.translatesAutoresizingMaskIntoConstraints = false
+        container.addSubview(descLabel)
+
+        NSLayoutConstraint.activate([
+            icon.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            icon.topAnchor.constraint(equalTo: container.topAnchor, constant: 1),
+            icon.widthAnchor.constraint(equalToConstant: 15),
+            icon.heightAnchor.constraint(equalToConstant: 15),
+
+            titleLabel.leadingAnchor.constraint(equalTo: icon.trailingAnchor, constant: 9),
+            titleLabel.topAnchor.constraint(equalTo: container.topAnchor),
+            titleLabel.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+
+            descLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
+            descLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 2),
+            descLabel.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+            descLabel.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+        ])
+
+        return container
+    }
+
     private func buildUI() {
         guard let contentView = window?.contentView else { return }
 
@@ -120,6 +161,28 @@ final class WelcomeWindowController: NSWindowController {
         subtitleLabel.alignment = .center
         subtitleLabel.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(subtitleLabel)
+
+        // — Feature rows —
+        let feature1 = Self.makeFeatureRow(
+            symbol: "wand.and.sparkles",
+            title: "Auto-Convert",
+            description: "Detects mistyped words and fixes the layout automatically on Space or Enter"
+        )
+        contentView.addSubview(feature1)
+
+        let feature2 = Self.makeFeatureRow(
+            symbol: "command",
+            title: "Force Convert",
+            description: "Press your shortcut mid-word to instantly switch the current word's layout"
+        )
+        contentView.addSubview(feature2)
+
+        let feature3 = Self.makeFeatureRow(
+            symbol: "text.cursor",
+            title: "Text Shortcuts",
+            description: "Type a trigger word and it expands into a full phrase automatically"
+        )
+        contentView.addSubview(feature3)
 
         // — Separator 1 —
         let sep1 = Self.makeSeparator()
@@ -209,25 +272,6 @@ final class WelcomeWindowController: NSWindowController {
         let sep3 = Self.makeSeparator()
         contentView.addSubview(sep3)
 
-        // — Step 3: Text Shortcuts —
-        let badge3 = Self.makeStepBadge("3")
-        contentView.addSubview(badge3)
-
-        let textShortcutsHeader = Self.makeSectionHeader("Text Shortcuts")
-        contentView.addSubview(textShortcutsHeader)
-
-        let textShortcutsHintLabel = NSTextField(labelWithString: "Type a trigger word and it expands automatically. Add your own shortcuts in Preferences.")
-        textShortcutsHintLabel.font = .systemFont(ofSize: 12)
-        textShortcutsHintLabel.textColor = NSColor(white: 0.55, alpha: 1)
-        textShortcutsHintLabel.maximumNumberOfLines = 2
-        textShortcutsHintLabel.lineBreakMode = .byWordWrapping
-        textShortcutsHintLabel.translatesAutoresizingMaskIntoConstraints = false
-        contentView.addSubview(textShortcutsHintLabel)
-
-        // — Separator 4 —
-        let sep4 = Self.makeSeparator()
-        contentView.addSubview(sep4)
-
         // — Start button —
         let startButton = NSButton(title: "Start", target: self, action: #selector(dismissWelcome))
         startButton.isBordered = false
@@ -262,7 +306,20 @@ final class WelcomeWindowController: NSWindowController {
             subtitleLabel.topAnchor.constraint(equalTo: appNameLabel.bottomAnchor, constant: 4),
             subtitleLabel.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
 
-            sep1.topAnchor.constraint(equalTo: subtitleLabel.bottomAnchor, constant: 22),
+            // Feature rows
+            feature1.topAnchor.constraint(equalTo: subtitleLabel.bottomAnchor, constant: 20),
+            feature1.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 28),
+            feature1.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -28),
+
+            feature2.topAnchor.constraint(equalTo: feature1.bottomAnchor, constant: 12),
+            feature2.leadingAnchor.constraint(equalTo: feature1.leadingAnchor),
+            feature2.trailingAnchor.constraint(equalTo: feature1.trailingAnchor),
+
+            feature3.topAnchor.constraint(equalTo: feature2.bottomAnchor, constant: 12),
+            feature3.leadingAnchor.constraint(equalTo: feature1.leadingAnchor),
+            feature3.trailingAnchor.constraint(equalTo: feature1.trailingAnchor),
+
+            sep1.topAnchor.constraint(equalTo: feature3.bottomAnchor, constant: 20),
             sep1.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 22),
             sep1.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -22),
             sep1.heightAnchor.constraint(equalToConstant: 1),
@@ -314,25 +371,7 @@ final class WelcomeWindowController: NSWindowController {
             sep3.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -22),
             sep3.heightAnchor.constraint(equalToConstant: 1),
 
-            // Step 3 header row
-            badge3.topAnchor.constraint(equalTo: sep3.bottomAnchor, constant: 16),
-            badge3.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 22),
-            badge3.widthAnchor.constraint(equalToConstant: 20),
-            badge3.heightAnchor.constraint(equalToConstant: 20),
-
-            textShortcutsHeader.centerYAnchor.constraint(equalTo: badge3.centerYAnchor),
-            textShortcutsHeader.leadingAnchor.constraint(equalTo: badge3.trailingAnchor, constant: 8),
-
-            textShortcutsHintLabel.topAnchor.constraint(equalTo: badge3.bottomAnchor, constant: 10),
-            textShortcutsHintLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 22),
-            textShortcutsHintLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -22),
-
-            sep4.topAnchor.constraint(equalTo: textShortcutsHintLabel.bottomAnchor, constant: 18),
-            sep4.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 22),
-            sep4.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -22),
-            sep4.heightAnchor.constraint(equalToConstant: 1),
-
-            startButton.topAnchor.constraint(greaterThanOrEqualTo: sep4.bottomAnchor, constant: 16),
+            startButton.topAnchor.constraint(greaterThanOrEqualTo: sep3.bottomAnchor, constant: 16),
             startButton.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
             startButton.widthAnchor.constraint(equalToConstant: 160),
             startButton.heightAnchor.constraint(equalToConstant: 36),
