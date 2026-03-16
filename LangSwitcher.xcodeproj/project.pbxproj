@@ -15,6 +15,7 @@
 		AA0000000000000000000063 /* MenuBarController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000053 /* MenuBarController.swift */; };
 		AA0000000000000000000064 /* SettingsWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000054 /* SettingsWindowController.swift */; };
 		AA0000000000000000000065 /* WelcomeWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000055 /* WelcomeWindowController.swift */; };
+		AA0000000000000000000066 /* AboutWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000068 /* AboutWindowController.swift */; };
 		AA0000000000000000000067 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000058 /* Assets.xcassets */; };
 /* End PBXBuildFile section */
 
@@ -28,6 +29,7 @@
 		AA0000000000000000000053 /* MenuBarController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarController.swift; sourceTree = "<group>"; };
 		AA0000000000000000000054 /* SettingsWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsWindowController.swift; sourceTree = "<group>"; };
 		AA0000000000000000000055 /* WelcomeWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WelcomeWindowController.swift; sourceTree = "<group>"; };
+		AA0000000000000000000068 /* AboutWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AboutWindowController.swift; sourceTree = "<group>"; };
 		AA0000000000000000000056 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		AA0000000000000000000058 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -61,6 +63,7 @@
 				AA0000000000000000000053 /* MenuBarController.swift */,
 				AA0000000000000000000054 /* SettingsWindowController.swift */,
 				AA0000000000000000000055 /* WelcomeWindowController.swift */,
+				AA0000000000000000000068 /* AboutWindowController.swift */,
 				396662922F6425C70040C762 /* TextShortcutsStore.swift */,
 				AA0000000000000000000056 /* Info.plist */,
 				395153632F5B6DCC008D6426 /* AppIcon.icon */,
@@ -153,6 +156,7 @@
 				AA0000000000000000000063 /* MenuBarController.swift in Sources */,
 				AA0000000000000000000064 /* SettingsWindowController.swift in Sources */,
 				AA0000000000000000000065 /* WelcomeWindowController.swift in Sources */,
+				AA0000000000000000000066 /* AboutWindowController.swift in Sources */,
 				396662932F6425C70040C762 /* TextShortcutsStore.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -285,7 +289,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 0.2.0;
+				MARKETING_VERSION = 0.4.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.tetrex.langSwitcher;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -307,7 +311,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 0.2.0;
+				MARKETING_VERSION = 0.4.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.tetrex.langSwitcher;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
