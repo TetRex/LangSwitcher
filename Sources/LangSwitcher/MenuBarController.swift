@@ -133,6 +133,9 @@ final class MenuBarController {
                 self?.interceptor.forceConvertKeyCode = keyCode
                 self?.interceptor.forceConvertModifiers = modifiers
             }
+            welcomeController?.onModeChanged = { [weak self] mode in
+                self?.interceptor.correctionMode = mode
+            }
             NotificationCenter.default.addObserver(
                 forName: NSWindow.willCloseNotification,
                 object: welcomeController?.window,
