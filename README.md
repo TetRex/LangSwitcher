@@ -5,8 +5,18 @@
 <h1 align="center">LangSwitcher</h1>
 
 <p align="center">
-  A lightweight macOS menu bar app that automatically fixes keyboard layout mistakes between English and Cyrillic.
+  A lightweight macOS menu bar app that automatically fixes keyboard layout mistakes between English, Cyrillic, and Chinese.
 </p>
+
+---
+
+> [!WARNING]
+> **Accessibility Permission Required**
+> LangSwitcher uses the macOS Accessibility API to intercept and replace keystrokes. You must grant Accessibility access in **System Settings → Privacy & Security → Accessibility** before the app can function. The app will prompt you on first launch.
+
+> [!NOTE]
+> **App Signing**
+> Builds from source are unsigned by default. On first launch macOS may block the app with a *"cannot be opened because the developer cannot be verified"* message. To bypass it, go to **System Settings → Privacy & Security** and click **Open Anyway**, or run `xattr -dr com.apple.quarantine /path/to/LangSwitcher.app` in Terminal.
 
 ---
 
@@ -14,24 +24,41 @@
 
 | | |
 |---|---|
-| **Auto-Convert** | Detects mistyped words and silently fixes the layout when you press Space or Enter |
-| **Force Convert** | Press your shortcut mid-word to instantly switch the current word's layout |
+| **Cyrillic ⇄ English** | Fixes layout mix-ups between Cyrillic (Russian / Ukrainian) and QWERTY keyboards |
+| **Chinese → English** | Detects English typed while a Chinese Pinyin IME is active and switches layout |
+| **Force Convert** | Press your shortcut mid-word to instantly convert without waiting for Space |
 | **Text Shortcuts** | Define trigger words that expand into full phrases automatically |
-| **Bidirectional** | Handles both Cyrillic → English and English → Cyrillic corrections |
 | **Smart Validation** | Uses macOS spell-check dictionaries to avoid false positives |
-| **Layout Switch** | Automatically switches the active keyboard layout after each correction |
+| **Auto Layout Switch** | Switches the active keyboard layout automatically after each correction |
 | **Ukrainian Support** | Full ЙЦУКЕН + Ukrainian extras — `ґ`, `і`, `ї`, `є` |
 
 ## How It Works
 
-LangSwitcher intercepts keyboard input via a global event tap. As you type, it buffers the current word and on Space or Enter checks it against macOS dictionaries:
+LangSwitcher installs a global `CGEventTap` at the session level. As you type, it buffers the current word and on Space or Enter checks it against macOS spell-check dictionaries:
 
-- **Cyrillic → English** — typed in the wrong layout, Cyrillic characters are mapped back to their QWERTY equivalents
-- **English → Cyrillic** — typed in the wrong layout, QWERTY characters are mapped to the corresponding Cyrillic word
+- **Cyrillic → English** — Cyrillic characters are mapped back to their QWERTY equivalents
+- **English → Cyrillic** — QWERTY characters are mapped to the matching Cyrillic word (Russian or Ukrainian)
+- **Chinese → English** — if a Chinese Pinyin IME is active and the buffered word is a valid English word, the layout is switched and the word is retyped in English
 
-Only genuine mistakes are corrected — valid words in the current script are left untouched. After a correction, the active keyboard layout automatically switches to match.
+Only genuine mistakes are corrected — valid words in the current script are left untouched.
 
 ## Requirements
 
 - macOS 13 Ventura or later
 - Accessibility permission (prompted on first launch)
+
+## Building
+
+**Swift Package:**
+```bash
+swift build -c release
+```
+
+**Xcode:** Open `LangSwitcher.xcodeproj` and press ⌘B.
+
+## What's New in 0.4.0
+
+- Added **Chinese → English** correction mode for Pinyin IME users
+- Mode picker added to Welcome screen and Preferences
+- Redesigned About window with feature list
+- Updated Welcome screen with 3-step setup flow
