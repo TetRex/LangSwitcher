@@ -8,6 +8,7 @@ final class MenuBarController {
     private let interceptor: KeyboardInterceptor
     private var settingsController: SettingsWindowController?
     private var welcomeController: WelcomeWindowController?
+    private var aboutController: AboutWindowController?
 
     init() {
         interceptor = KeyboardInterceptor()
@@ -72,11 +73,15 @@ final class MenuBarController {
         if settingsController == nil {
             settingsController = SettingsWindowController(
                 currentKeyCode: interceptor.forceConvertKeyCode,
-                currentModifiers: interceptor.forceConvertModifiers
+                currentModifiers: interceptor.forceConvertModifiers,
+                currentMode: interceptor.correctionMode
             )
             settingsController?.onShortcutChanged = { [weak self] keyCode, modifiers in
                 self?.interceptor.forceConvertKeyCode = keyCode
                 self?.interceptor.forceConvertModifiers = modifiers
+            }
+            settingsController?.onModeChanged = { [weak self] mode in
+                self?.interceptor.correctionMode = mode
             }
             // Release the controller when the window is closed to free memory.
             NotificationCenter.default.addObserver(
@@ -99,14 +104,19 @@ final class MenuBarController {
     }
 
     @objc private func showAbout() {
-        let alert = NSAlert()
-        alert.messageText = "LangSwitcher 0.3.0"
-        alert.informativeText = """
-            Automatically converts Cyrillic text typed \
-            on an English QWERTY keyboard back to English.
-            """
-        alert.alertStyle = .informational
-        alert.runModal()
+        if aboutController == nil {
+            aboutController = AboutWindowController()
+            NotificationCenter.default.addObserver(
+                forName: NSWindow.willCloseNotification,
+                object: aboutController?.window,
+                queue: .main
+            ) { [weak self] _ in
+                MainActor.assumeIsolated { self?.aboutController = nil }
+            }
+        }
+        aboutController?.showWindow(nil)
+        aboutController?.window?.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
     }
 
     @objc private func quitApp() {
