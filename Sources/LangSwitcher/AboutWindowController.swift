@@ -96,6 +96,14 @@ final class AboutWindowController: NSWindowController {
         countLabel.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(countLabel)
 
+        let githubButton = NSButton(title: "github.com/TetRex", target: self, action: #selector(openGitHub))
+        githubButton.bezelStyle = .inline
+        githubButton.isBordered = false
+        githubButton.font = .systemFont(ofSize: 11)
+        githubButton.contentTintColor = NSColor.controlAccentColor
+        githubButton.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(githubButton)
+
         let copyright = NSTextField(labelWithString: "© 2025 LangSwitcher")
         copyright.font = .systemFont(ofSize: 10)
         copyright.textColor = NSColor(white: 0.3, alpha: 1)
@@ -143,12 +151,21 @@ final class AboutWindowController: NSWindowController {
             countLabel.topAnchor.constraint(equalTo: sep2.bottomAnchor, constant: 10),
             countLabel.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
 
-            copyright.topAnchor.constraint(equalTo: countLabel.bottomAnchor, constant: 4),
+            githubButton.topAnchor.constraint(equalTo: countLabel.bottomAnchor, constant: 6),
+            githubButton.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
+
+            copyright.topAnchor.constraint(equalTo: githubButton.bottomAnchor, constant: 2),
             copyright.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
             copyright.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -16),
         ]
 
         NSLayoutConstraint.activate(constraints)
+    }
+
+    // MARK: - Actions
+
+    @objc private func openGitHub() {
+        NSWorkspace.shared.open(URL(string: "https://github.com/TetRex")!)
     }
 
     // MARK: - Helpers
