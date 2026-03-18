@@ -96,7 +96,7 @@ final class AboutWindowController: NSWindowController {
         countLabel.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(countLabel)
 
-        let githubButton = NSButton(title: "github.com/TetRex", target: self, action: #selector(openGitHub))
+        let githubButton = NSButton(title: "GitHub TetRex", target: self, action: #selector(openGitHub))
         githubButton.bezelStyle = .inline
         githubButton.isBordered = false
         githubButton.font = .systemFont(ofSize: 11)
