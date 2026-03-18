@@ -1,4 +1,5 @@
 import AppKit
+import ServiceManagement
 
 /// Manages the menu bar status item and wires it to the keyboard interceptor.
 @MainActor
@@ -9,6 +10,7 @@ final class MenuBarController {
     private var settingsController: SettingsWindowController?
     private var welcomeController: WelcomeWindowController?
     private var aboutController: AboutWindowController?
+    private var launchAtLoginItem: NSMenuItem?
 
     init() {
         interceptor = KeyboardInterceptor()
@@ -55,6 +57,15 @@ final class MenuBarController {
                                    key: "",
                                    target: self))
 
+        menu.addItem(.separator())
+
+        let launchItem = NSMenuItem(title: "Launch at Login",
+                                    action: #selector(toggleLaunchAtLogin),
+                                    keyEquivalent: "")
+        launchItem.target = self
+        launchItem.state = isLaunchAtLoginEnabled ? .on : .off
+        menu.addItem(launchItem)
+        launchAtLoginItem = launchItem
 
         menu.addItem(.separator())
 
@@ -65,6 +76,10 @@ final class MenuBarController {
                                    target: self))
 
         statusItem.menu = menu
+    }
+
+    private var isLaunchAtLoginEnabled: Bool {
+        SMAppService.mainApp.status == .enabled
     }
 
     // MARK: - Actions
@@ -105,7 +120,7 @@ final class MenuBarController {
 
     @objc private func showAbout() {
         if aboutController == nil {
-            aboutController = AboutWindowController()
+            aboutController = AboutWindowController(correctionCount: interceptor.correctionCount)
             NotificationCenter.default.addObserver(
                 forName: NSWindow.willCloseNotification,
                 object: aboutController?.window,
@@ -117,6 +132,19 @@ final class MenuBarController {
         aboutController?.showWindow(nil)
         aboutController?.window?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
+    }
+
+    @objc private func toggleLaunchAtLogin() {
+        do {
+            if isLaunchAtLoginEnabled {
+                try SMAppService.mainApp.unregister()
+            } else {
+                try SMAppService.mainApp.register()
+            }
+        } catch {
+            print("⚠️  Launch at Login toggle failed: \(error.localizedDescription)")
+        }
+        launchAtLoginItem?.state = isLaunchAtLoginEnabled ? .on : .off
     }
 
     @objc private func quitApp() {
