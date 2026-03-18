@@ -1,5 +1,6 @@
 import AppKit
 import Carbon.HIToolbox
+import ServiceManagement
 
 /// A settings window that lets the user configure the force‑convert shortcut
 /// and manage custom text expansion shortcuts.
@@ -171,6 +172,24 @@ final class SettingsWindowController: NSWindowController {
         modeSeparatorView.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(modeSeparatorView)
 
+        // — General section —
+
+        let generalHeader = Self.makeSectionHeader("General")
+        contentView.addSubview(generalHeader)
+
+        let launchAtLoginRow = makeToggleRow(
+            label: "Launch at Login",
+            isOn: SMAppService.mainApp.status == .enabled,
+            action: #selector(toggleLaunchAtLogin(_:))
+        )
+        contentView.addSubview(launchAtLoginRow)
+
+        let generalSeparatorView = NSView()
+        generalSeparatorView.wantsLayer = true
+        generalSeparatorView.layer?.backgroundColor = NSColor(white: 0.2, alpha: 1).cgColor
+        generalSeparatorView.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(generalSeparatorView)
+
         // — Text shortcuts section —
 
         let textShortcutsHeader = Self.makeSectionHeader("Text Shortcuts")
@@ -271,12 +290,24 @@ final class SettingsWindowController: NSWindowController {
             modeSeparatorView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -22),
             modeSeparatorView.heightAnchor.constraint(equalToConstant: 1),
 
-            textShortcutsHeader.topAnchor.constraint(equalTo: modeSeparatorView.bottomAnchor, constant: 14),
+            generalHeader.topAnchor.constraint(equalTo: modeSeparatorView.bottomAnchor, constant: 14),
+            generalHeader.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 22),
+
+            launchAtLoginRow.topAnchor.constraint(equalTo: generalHeader.bottomAnchor, constant: 8),
+            launchAtLoginRow.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 22),
+            launchAtLoginRow.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -22),
+
+            generalSeparatorView.topAnchor.constraint(equalTo: launchAtLoginRow.bottomAnchor, constant: 14),
+            generalSeparatorView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 22),
+            generalSeparatorView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -22),
+            generalSeparatorView.heightAnchor.constraint(equalToConstant: 1),
+
+            textShortcutsHeader.topAnchor.constraint(equalTo: generalSeparatorView.bottomAnchor, constant: 14),
             textShortcutsHeader.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 22),
             textShortcutsHeader.centerYAnchor.constraint(equalTo: segmented.centerYAnchor),
 
             segmented.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -22),
-            segmented.topAnchor.constraint(equalTo: modeSeparatorView.bottomAnchor, constant: 10),
+            segmented.topAnchor.constraint(equalTo: generalSeparatorView.bottomAnchor, constant: 10),
 
             shortcutsScrollView.topAnchor.constraint(equalTo: textShortcutsHeader.bottomAnchor, constant: 8),
             shortcutsScrollView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 22),
@@ -397,6 +428,52 @@ final class SettingsWindowController: NSWindowController {
 
     @objc private func cyrillicCardTapped() { applyMode(.cyrillic) }
     @objc private func chineseCardTapped()  { applyMode(.chinese)  }
+
+    // MARK: - General section helpers
+
+    private func makeToggleRow(label: String, isOn: Bool, action: Selector) -> NSView {
+        let row = NSView()
+        row.translatesAutoresizingMaskIntoConstraints = false
+
+        let labelField = NSTextField(labelWithString: label)
+        labelField.font = .systemFont(ofSize: 13)
+        labelField.textColor = .white
+        labelField.translatesAutoresizingMaskIntoConstraints = false
+        row.addSubview(labelField)
+
+        let toggle = NSSwitch()
+        toggle.state = isOn ? .on : .off
+        toggle.target = self
+        toggle.action = action
+        toggle.translatesAutoresizingMaskIntoConstraints = false
+        row.addSubview(toggle)
+
+        NSLayoutConstraint.activate([
+            labelField.leadingAnchor.constraint(equalTo: row.leadingAnchor),
+            labelField.centerYAnchor.constraint(equalTo: row.centerYAnchor),
+
+            toggle.trailingAnchor.constraint(equalTo: row.trailingAnchor),
+            toggle.centerYAnchor.constraint(equalTo: row.centerYAnchor),
+
+            row.heightAnchor.constraint(equalToConstant: 28),
+        ])
+
+        return row
+    }
+
+    @objc private func toggleLaunchAtLogin(_ sender: NSSwitch) {
+        do {
+            if sender.state == .on {
+                try SMAppService.mainApp.register()
+            } else {
+                try SMAppService.mainApp.unregister()
+            }
+        } catch {
+            // Revert toggle if the operation failed
+            sender.state = sender.state == .on ? .off : .on
+            print("⚠️  Launch at Login toggle failed: \(error.localizedDescription)")
+        }
+    }
 
     private func applyMode(_ mode: CorrectionMode) {
         currentMode = mode
