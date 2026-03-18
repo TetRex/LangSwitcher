@@ -31,6 +31,8 @@
 | **Smart Validation** | Uses macOS spell-check dictionaries to avoid false positives |
 | **Auto Layout Switch** | Switches the active keyboard layout automatically after each correction |
 | **Ukrainian Support** | Full ЙЦУКЕН + Ukrainian extras — `ґ`, `і`, `ї`, `є` |
+| **Launch at Login** | Optional setting to start LangSwitcher automatically on login |
+| **Correction Counter** | Tracks and displays the total number of corrections made |
 
 ## How It Works
 
@@ -55,6 +57,12 @@ swift build -c release
 ```
 
 **Xcode:** Open `LangSwitcher.xcodeproj` and press ⌘B.
+
+## What's New in 0.5.0
+
+- **Launch at Login** toggle added to Preferences
+- **Correction counter** — total corrections tracked and shown in the About window
+- GitHub profile link added to the About window
 
 ## What's New in 0.4.0
 
