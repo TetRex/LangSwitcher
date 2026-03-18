@@ -4,7 +4,10 @@ import AppKit
 @MainActor
 final class AboutWindowController: NSWindowController {
 
-    init() {
+    private let correctionCount: Int
+
+    init(correctionCount: Int = 0) {
+        self.correctionCount = correctionCount
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 340, height: 500),
             styleMask: [.titled, .closable, .fullSizeContentView],
@@ -85,6 +88,14 @@ final class AboutWindowController: NSWindowController {
         let sep2 = makeSeparator()
         contentView.addSubview(sep2)
 
+        // Correction count stat
+        let countLabel = NSTextField(labelWithString: "Corrections made: \(correctionCount)")
+        countLabel.font = .monospacedSystemFont(ofSize: 11, weight: .regular)
+        countLabel.textColor = NSColor(white: 0.45, alpha: 1)
+        countLabel.alignment = .center
+        countLabel.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(countLabel)
+
         let copyright = NSTextField(labelWithString: "© 2025 LangSwitcher")
         copyright.font = .systemFont(ofSize: 10)
         copyright.textColor = NSColor(white: 0.3, alpha: 1)
@@ -129,7 +140,10 @@ final class AboutWindowController: NSWindowController {
             sep2.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -22),
             sep2.heightAnchor.constraint(equalToConstant: 1),
 
-            copyright.topAnchor.constraint(equalTo: sep2.bottomAnchor, constant: 12),
+            countLabel.topAnchor.constraint(equalTo: sep2.bottomAnchor, constant: 10),
+            countLabel.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
+
+            copyright.topAnchor.constraint(equalTo: countLabel.bottomAnchor, constant: 4),
             copyright.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
             copyright.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -16),
         ]
