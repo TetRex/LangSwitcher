@@ -27,6 +27,11 @@ final class KeyboardInterceptor {
     var forceConvertModifiers: UInt64
     /// The active correction mode (Cyrillic ⇄ English or Chinese → English).
     var correctionMode: CorrectionMode
+    /// Total number of auto-corrections performed, persisted across launches.
+    var correctionCount: Int {
+        get { UserDefaults.standard.integer(forKey: "CorrectionCount") }
+        set { UserDefaults.standard.set(newValue, forKey: "CorrectionCount") }
+    }
 
     // MARK: - Lifecycle
 
@@ -153,6 +158,7 @@ final class KeyboardInterceptor {
                                            replacement: english,
                                            includeExtraChar: false)
                         switchToEnglishLayout()
+                        correctionCount += 1
                     }
                     return nil
                 }
@@ -169,6 +175,7 @@ final class KeyboardInterceptor {
                             replaceCurrentWord(charCount: word.count,
                                                replacement: english)
                             switchToEnglishLayout()
+                            correctionCount += 1
                         }
                         return nil
                     } else {
@@ -207,6 +214,7 @@ final class KeyboardInterceptor {
                 replaceLastWord(charCount: word.count,
                                 replacement: expansion,
                                 trailingEvent: event)
+                correctionCount += 1
                 return nil
             }
 
@@ -219,6 +227,7 @@ final class KeyboardInterceptor {
                                     replacement: english,
                                     trailingEvent: event)
                     switchToEnglishLayout()
+                    correctionCount += 1
                     return nil
                 }
 
@@ -231,6 +240,7 @@ final class KeyboardInterceptor {
                                     trailingEvent: event)
                     let lang = CyrillicMapper.cyrillicWordLanguage(cyrillic)
                     switchToCyrillicLayout(preferredLanguage: lang)
+                    correctionCount += 1
                     return nil
                 }
             } else {
@@ -246,6 +256,7 @@ final class KeyboardInterceptor {
                     replaceLastWord(charCount: word.count,
                                     replacement: word,
                                     trailingEvent: event)
+                    correctionCount += 1
                     return nil
                 }
             }
