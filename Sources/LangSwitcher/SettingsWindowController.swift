@@ -11,7 +11,6 @@ final class SettingsWindowController: NSWindowController {
 
     private static let shortcutKeyCodeKey   = "ForceConvertKeyCode"
     private static let shortcutModifiersKey = "ForceConvertModifiers"
-    private static let correctionModeKey    = "CorrectionMode"
 
     // MARK: - UI — force-convert shortcut
 
@@ -24,14 +23,6 @@ final class SettingsWindowController: NSWindowController {
     /// Called when the user picks a new shortcut.
     var onShortcutChanged: ((_ keyCode: Int, _ modifiers: UInt64) -> Void)?
 
-    // MARK: - UI — correction mode
-
-    private let cyrillicModeCard = NSView()
-    private let chineseModeCard  = NSView()
-
-    /// Called when the user toggles the correction mode.
-    var onModeChanged: ((_ mode: CorrectionMode) -> Void)?
-
     // MARK: - UI — text shortcuts table
 
     private let shortcutsTableView = NSTableView()
@@ -43,14 +34,12 @@ final class SettingsWindowController: NSWindowController {
 
     private var currentKeyCode: Int
     private var currentModifiers: UInt64   // raw CGEventFlags bits for ⌘⌥⌃⇧
-    private var currentMode: CorrectionMode
 
     // MARK: - Init
 
-    init(currentKeyCode: Int, currentModifiers: UInt64, currentMode: CorrectionMode) {
+    init(currentKeyCode: Int, currentModifiers: UInt64) {
         self.currentKeyCode = currentKeyCode
         self.currentModifiers = currentModifiers
-        self.currentMode = currentMode
 
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 460, height: 540),
@@ -148,29 +137,6 @@ final class SettingsWindowController: NSWindowController {
         separatorView.layer?.backgroundColor = NSColor(white: 0.2, alpha: 1).cgColor
         separatorView.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(separatorView)
-
-        // — Correction mode section —
-
-        let correctionModeHeader = Self.makeSectionHeader("Correction Mode")
-        contentView.addSubview(correctionModeHeader)
-
-        buildModeCard(cyrillicModeCard,
-                      title: "Cyrillic ⇄ English",
-                      description: "Fixes text accidentally typed in Cyrillic (Russian / Ukrainian) when English was intended, and vice versa.",
-                      action: #selector(cyrillicCardTapped))
-        buildModeCard(chineseModeCard,
-                      title: "Chinese → English",
-                      description: "Detects English words typed while a Chinese Pinyin IME is active and switches to the English layout.",
-                      action: #selector(chineseCardTapped))
-        contentView.addSubview(cyrillicModeCard)
-        contentView.addSubview(chineseModeCard)
-        updateModeCards()
-
-        let modeSeparatorView = NSView()
-        modeSeparatorView.wantsLayer = true
-        modeSeparatorView.layer?.backgroundColor = NSColor(white: 0.2, alpha: 1).cgColor
-        modeSeparatorView.translatesAutoresizingMaskIntoConstraints = false
-        contentView.addSubview(modeSeparatorView)
 
         // — General section —
 
@@ -273,24 +239,7 @@ final class SettingsWindowController: NSWindowController {
             separatorView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -22),
             separatorView.heightAnchor.constraint(equalToConstant: 1),
 
-            correctionModeHeader.topAnchor.constraint(equalTo: separatorView.bottomAnchor, constant: 14),
-            correctionModeHeader.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 22),
-
-            cyrillicModeCard.topAnchor.constraint(equalTo: correctionModeHeader.bottomAnchor, constant: 8),
-            cyrillicModeCard.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 22),
-            cyrillicModeCard.trailingAnchor.constraint(equalTo: contentView.centerXAnchor, constant: -5),
-
-            chineseModeCard.topAnchor.constraint(equalTo: correctionModeHeader.bottomAnchor, constant: 8),
-            chineseModeCard.leadingAnchor.constraint(equalTo: contentView.centerXAnchor, constant: 5),
-            chineseModeCard.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -22),
-            chineseModeCard.heightAnchor.constraint(equalTo: cyrillicModeCard.heightAnchor),
-
-            modeSeparatorView.topAnchor.constraint(equalTo: cyrillicModeCard.bottomAnchor, constant: 14),
-            modeSeparatorView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 22),
-            modeSeparatorView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -22),
-            modeSeparatorView.heightAnchor.constraint(equalToConstant: 1),
-
-            generalHeader.topAnchor.constraint(equalTo: modeSeparatorView.bottomAnchor, constant: 14),
+            generalHeader.topAnchor.constraint(equalTo: separatorView.bottomAnchor, constant: 14),
             generalHeader.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 22),
 
             launchAtLoginRow.topAnchor.constraint(equalTo: generalHeader.bottomAnchor, constant: 8),
@@ -373,62 +322,6 @@ final class SettingsWindowController: NSWindowController {
         }
     }
 
-    // MARK: - Correction mode actions
-
-    /// Builds a tappable card view with a bold title and a description label.
-    private func buildModeCard(_ card: NSView, title: String, description: String, action: Selector) {
-        card.wantsLayer = true
-        card.layer?.cornerRadius = 10
-        card.translatesAutoresizingMaskIntoConstraints = false
-
-        let titleLabel = NSTextField(labelWithString: title)
-        titleLabel.font = .systemFont(ofSize: 13, weight: .semibold)
-        titleLabel.textColor = .white
-        titleLabel.translatesAutoresizingMaskIntoConstraints = false
-        card.addSubview(titleLabel)
-
-        let descLabel = NSTextField(labelWithString: description)
-        descLabel.font = .systemFont(ofSize: 11)
-        descLabel.textColor = NSColor(white: 0.55, alpha: 1)
-        descLabel.isSelectable = false
-        descLabel.lineBreakMode = .byWordWrapping
-        descLabel.maximumNumberOfLines = 0
-        descLabel.preferredMaxLayoutWidth = 160
-        descLabel.translatesAutoresizingMaskIntoConstraints = false
-        card.addSubview(descLabel)
-
-        NSLayoutConstraint.activate([
-            titleLabel.topAnchor.constraint(equalTo: card.topAnchor, constant: 12),
-            titleLabel.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 12),
-            titleLabel.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -12),
-
-            descLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 6),
-            descLabel.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 12),
-            descLabel.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -12),
-            descLabel.bottomAnchor.constraint(equalTo: card.bottomAnchor, constant: -12),
-        ])
-
-        let tap = NSClickGestureRecognizer(target: self, action: action)
-        card.addGestureRecognizer(tap)
-    }
-
-    private func updateModeCards() {
-        func apply(_ card: NSView, selected: Bool) {
-            card.layer?.backgroundColor = selected
-                ? NSColor(white: 0.18, alpha: 1).cgColor
-                : NSColor(white: 0.10, alpha: 1).cgColor
-            card.layer?.borderWidth  = selected ? 1.5 : 1
-            card.layer?.borderColor  = selected
-                ? NSColor.controlAccentColor.cgColor
-                : NSColor(white: 0.28, alpha: 1).cgColor
-        }
-        apply(cyrillicModeCard, selected: currentMode == .cyrillic)
-        apply(chineseModeCard,  selected: currentMode == .chinese)
-    }
-
-    @objc private func cyrillicCardTapped() { applyMode(.cyrillic) }
-    @objc private func chineseCardTapped()  { applyMode(.chinese)  }
-
     // MARK: - General section helpers
 
     private func makeToggleRow(label: String, isOn: Bool, action: Selector) -> NSView {
@@ -473,18 +366,6 @@ final class SettingsWindowController: NSWindowController {
             sender.state = sender.state == .on ? .off : .on
             print("⚠️  Launch at Login toggle failed: \(error.localizedDescription)")
         }
-    }
-
-    private func applyMode(_ mode: CorrectionMode) {
-        currentMode = mode
-        UserDefaults.standard.set(mode.rawValue, forKey: Self.correctionModeKey)
-        updateModeCards()
-        onModeChanged?(mode)
-    }
-
-    static func savedMode() -> CorrectionMode {
-        let raw = UserDefaults.standard.string(forKey: correctionModeKey) ?? ""
-        return CorrectionMode(rawValue: raw) ?? .cyrillic
     }
 
     // MARK: - Text shortcuts actions
