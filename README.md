@@ -5,7 +5,7 @@
 <h1 align="center">LangSwitcher</h1>
 
 <p align="center">
-  A lightweight macOS menu bar app that automatically fixes keyboard layout mistakes between English, Cyrillic, and Chinese.
+  A lightweight macOS menu bar app that automatically fixes keyboard layout mistakes between English and Cyrillic.
 </p>
 
 ---
@@ -25,7 +25,6 @@
 | | |
 |---|---|
 | **Cyrillic ⇄ English** | Fixes layout mix-ups between Cyrillic (Russian / Ukrainian) and QWERTY keyboards |
-| **Chinese → English** | Detects English typed while a Chinese Pinyin IME is active and switches layout |
 | **Force Convert** | Press your shortcut mid-word to instantly convert without waiting for Space |
 | **Text Shortcuts** | Define trigger words that expand into full phrases automatically |
 | **Smart Validation** | Uses macOS spell-check dictionaries to avoid false positives |
@@ -40,7 +39,6 @@ LangSwitcher installs a global `CGEventTap` at the session level. As you type, i
 
 - **Cyrillic → English** — Cyrillic characters are mapped back to their QWERTY equivalents
 - **English → Cyrillic** — QWERTY characters are mapped to the matching Cyrillic word (Russian or Ukrainian)
-- **Chinese → English** — if a Chinese Pinyin IME is active and the buffered word is a valid English word, the layout is switched and the word is retyped in English
 
 Only genuine mistakes are corrected — valid words in the current script are left untouched.
 
