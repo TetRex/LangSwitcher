@@ -74,15 +74,11 @@ final class MenuBarController {
         if settingsController == nil {
             settingsController = SettingsWindowController(
                 currentKeyCode: interceptor.forceConvertKeyCode,
-                currentModifiers: interceptor.forceConvertModifiers,
-                currentMode: interceptor.correctionMode
+                currentModifiers: interceptor.forceConvertModifiers
             )
             settingsController?.onShortcutChanged = { [weak self] keyCode, modifiers in
                 self?.interceptor.forceConvertKeyCode = keyCode
                 self?.interceptor.forceConvertModifiers = modifiers
-            }
-            settingsController?.onModeChanged = { [weak self] mode in
-                self?.interceptor.correctionMode = mode
             }
             // Release the controller when the window is closed to free memory.
             NotificationCenter.default.addObserver(
@@ -133,9 +129,6 @@ final class MenuBarController {
             welcomeController?.onShortcutChanged = { [weak self] keyCode, modifiers in
                 self?.interceptor.forceConvertKeyCode = keyCode
                 self?.interceptor.forceConvertModifiers = modifiers
-            }
-            welcomeController?.onModeChanged = { [weak self] mode in
-                self?.interceptor.correctionMode = mode
             }
             NotificationCenter.default.addObserver(
                 forName: NSWindow.willCloseNotification,
