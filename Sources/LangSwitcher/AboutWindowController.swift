@@ -55,7 +55,7 @@ final class AboutWindowController: NSWindowController {
         contentView.addSubview(nameLabel)
 
         // Version badge
-        let versionBadge = makeVersionBadge("Version 0.5.0")
+        let versionBadge = makeVersionBadge("Version 1.0.0")
         contentView.addSubview(versionBadge)
 
         // Separator
