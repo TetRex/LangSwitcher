@@ -1,12 +1,6 @@
 @preconcurrency import AppKit
 import Carbon.HIToolbox
 
-/// The correction mode that determines which auto‑fix logic is active.
-enum CorrectionMode: String {
-    case cyrillic = "cyrillic"
-    case chinese  = "chinese"
-}
-
 /// Intercepts global keyboard events via a CGEventTap,
 /// buffers characters and auto-fixes layout mistakes on Space / Enter.
 @MainActor
@@ -25,8 +19,6 @@ final class KeyboardInterceptor {
     var forceConvertKeyCode: Int
     /// Modifier flags (⌘⌥⌃⇧) for the shortcut. 0 = double‑tap mode.
     var forceConvertModifiers: UInt64
-    /// The active correction mode (Cyrillic ⇄ English or Chinese → English).
-    var correctionMode: CorrectionMode
     /// Total number of auto-corrections performed, persisted across launches.
     var correctionCount: Int {
         get { UserDefaults.standard.integer(forKey: "CorrectionCount") }
@@ -38,7 +30,6 @@ final class KeyboardInterceptor {
     init() {
         forceConvertKeyCode = SettingsWindowController.savedKeyCode()
         forceConvertModifiers = SettingsWindowController.savedModifiers()
-        correctionMode = SettingsWindowController.savedMode()
         startEventTap()
     }
 
@@ -218,47 +209,29 @@ final class KeyboardInterceptor {
                 return nil
             }
 
-            if correctionMode == .cyrillic {
-                // 2. Cyrillic → English correction (also accepts shell commands)
-                if !CyrillicMapper.isValidCyrillicWordConsideringLatinOverlap(word),
-                   let english = CyrillicMapper.convertIncludingLatin(word),
-                   CyrillicMapper.isValidEnglishWord(english) || CyrillicMapper.isShellCommand(english) {
-                    replaceLastWord(charCount: word.count,
-                                    replacement: english,
-                                    trailingEvent: event)
-                    switchToEnglishLayout()
-                    correctionCount += 1
-                    return nil
-                }
+            // 2. Cyrillic → English correction (also accepts shell commands)
+            if !CyrillicMapper.isValidCyrillicWordConsideringLatinOverlap(word),
+               let english = CyrillicMapper.convertIncludingLatin(word),
+               CyrillicMapper.isValidEnglishWord(english) || CyrillicMapper.isShellCommand(english) {
+                replaceLastWord(charCount: word.count,
+                                replacement: english,
+                                trailingEvent: event)
+                switchToEnglishLayout()
+                correctionCount += 1
+                return nil
+            }
 
-                // 3. English → Cyrillic correction (skip known shell commands)
-                if !CyrillicMapper.isValidEnglishWord(word),
-                   !CyrillicMapper.isShellCommand(word),
-                   let cyrillic = CyrillicMapper.convertEnglishMistypeToValidCyrillic(word) {
-                    replaceLastWord(charCount: word.count,
-                                    replacement: cyrillic,
-                                    trailingEvent: event)
-                    let lang = CyrillicMapper.cyrillicWordLanguage(cyrillic)
-                    switchToCyrillicLayout(preferredLanguage: lang)
-                    correctionCount += 1
-                    return nil
-                }
-            } else {
-                // Chinese IME → English correction.
-                // When a Pinyin IME is composing, typed characters sit in the IME's
-                // buffer — nothing is committed to the document yet.  Switching the
-                // input source cancels that composition, so we only need to type the
-                // corrected word without sending any Backspaces first.
-                if !word.isEmpty,
-                   isChineseIMEActive(),
-                   CyrillicMapper.isValidEnglishWord(word) {
-                    switchToEnglishLayout()
-                    replaceLastWord(charCount: word.count,
-                                    replacement: word,
-                                    trailingEvent: event)
-                    correctionCount += 1
-                    return nil
-                }
+            // 3. English → Cyrillic correction (skip known shell commands)
+            if !CyrillicMapper.isValidEnglishWord(word),
+               !CyrillicMapper.isShellCommand(word),
+               let cyrillic = CyrillicMapper.convertEnglishMistypeToValidCyrillic(word) {
+                replaceLastWord(charCount: word.count,
+                                replacement: cyrillic,
+                                trailingEvent: event)
+                let lang = CyrillicMapper.cyrillicWordLanguage(cyrillic)
+                switchToCyrillicLayout(preferredLanguage: lang)
+                correctionCount += 1
+                return nil
             }
 
             return Unmanaged.passUnretained(event)
@@ -371,17 +344,6 @@ final class KeyboardInterceptor {
     }
 
     // MARK: - Helpers
-
-    /// Returns `true` when the currently selected input source is a Chinese IME
-    /// (any language code beginning with "zh", covering Simplified and Traditional).
-    private func isChineseIMEActive() -> Bool {
-        let source = TISCopyCurrentKeyboardInputSource().takeRetainedValue()
-        guard let ptr = TISGetInputSourceProperty(source, kTISPropertyInputSourceLanguages) else {
-            return false
-        }
-        let langs = Unmanaged<CFArray>.fromOpaque(ptr).takeUnretainedValue() as NSArray
-        return langs.contains { ($0 as? String)?.hasPrefix("zh") == true }
-    }
 
     /// Criteria dictionary for finding keyboard input sources (allocated once).
     private static let inputSourceCriteria: CFDictionary = [
