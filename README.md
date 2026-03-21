@@ -5,7 +5,7 @@
 <h1 align="center">LangSwitcher</h1>
 
 <p align="center">
-  A lightweight macOS menu bar app that automatically fixes keyboard layout mistakes between English and Cyrillic.
+  A lightweight app that automatically fixes keyboard layout mistakes between English and Cyrillic — available for macOS and Windows.
 </p>
 
 ---
@@ -42,8 +42,24 @@ LangSwitcher installs a global `CGEventTap` at the session level. As you type, i
 
 Only genuine mistakes are corrected — valid words in the current script are left untouched.
 
+## Platform Support
+
+### macOS
+
+The primary app — a menu bar utility built with Swift/AppKit.
+
+### Windows
+
+> [!NOTE]
+> **Work in Progress**
+> A Windows version is under active development. It will bring the same automatic layout correction to Windows users. Stay tuned for releases.
+
 ## Requirements
 
+### macOS
 - macOS 13 Ventura or later
 - Accessibility permission (prompted on first launch)
+
+### Windows
+- Windows 10 or later *(coming soon)*
 
