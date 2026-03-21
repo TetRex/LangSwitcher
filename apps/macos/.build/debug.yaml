@@ -1,0 +1,92 @@
+client:
+  name: basic
+  file-system: device-agnostic
+tools: {}
+targets:
+  "LangSwitcher-arm64-apple-macosx15.0-debug.exe": ["<LangSwitcher-arm64-apple-macosx15.0-debug.exe>"]
+  "LangSwitcher-arm64-apple-macosx15.0-debug.module": ["<LangSwitcher-arm64-apple-macosx15.0-debug.module>"]
+  "PackageStructure": ["<PackageStructure>"]
+  "main": ["<LangSwitcher-arm64-apple-macosx15.0-debug.exe>","<LangSwitcher-arm64-apple-macosx15.0-debug.module>"]
+  "test": ["<LangSwitcher-arm64-apple-macosx15.0-debug.exe>","<LangSwitcher-arm64-apple-macosx15.0-debug.module>"]
+default: "main"
+nodes:
+  "/Users/tetrex/Documents/LangSwitcher/apps/macos/Sources/LangSwitcher/":
+    is-directory-structure: true
+    content-exclusion-patterns: [".git",".build"]
+  "/Users/tetrex/Documents/LangSwitcher/apps/macos/.build/arm64-apple-macosx/debug/LangSwitcher":
+    is-mutated: true
+commands:
+  "/Users/tetrex/Documents/LangSwitcher/apps/macos/.build/arm64-apple-macosx/debug/LangSwitcher-entitlement.plist":
+    tool: write-auxiliary-file
+    inputs: ["<entitlement-plist>","<com.apple.security.get-task-allow>"]
+    outputs: ["/Users/tetrex/Documents/LangSwitcher/apps/macos/.build/arm64-apple-macosx/debug/LangSwitcher-entitlement.plist"]
+    description: "Write auxiliary file /Users/tetrex/Documents/LangSwitcher/apps/macos/.build/arm64-apple-macosx/debug/LangSwitcher-entitlement.plist"
+
+  "/Users/tetrex/Documents/LangSwitcher/apps/macos/.build/arm64-apple-macosx/debug/LangSwitcher.build/sources":
+    tool: write-auxiliary-file
+    inputs: ["<sources-file-list>","/Users/tetrex/Documents/LangSwitcher/apps/macos/Sources/LangSwitcher/AboutWindowController.swift","/Users/tetrex/Documents/LangSwitcher/apps/macos/Sources/LangSwitcher/CyrillicMapper.swift","/Users/tetrex/Documents/LangSwitcher/apps/macos/Sources/LangSwitcher/KeyboardInterceptor.swift","/Users/tetrex/Documents/LangSwitcher/apps/macos/Sources/LangSwitcher/LangSwitcher.swift","/Users/tetrex/Documents/LangSwitcher/apps/macos/Sources/LangSwitcher/MenuBarController.swift","/Users/tetrex/Documents/LangSwitcher/apps/macos/Sources/LangSwitcher/SettingsWindowController.swift","/Users/tetrex/Documents/LangSwitcher/apps/macos/Sources/LangSwitcher/TextShortcutsStore.swift","/Users/tetrex/Documents/LangSwitcher/apps/macos/Sources/LangSwitcher/WelcomeWindowController.swift","/Users/tetrex/Documents/LangSwitcher/apps/macos/.build/arm64-apple-macosx/debug/LangSwitcher.build/DerivedSources/resource_bundle_accessor.swift"]
+    outputs: ["/Users/tetrex/Documents/LangSwitcher/apps/macos/.build/arm64-apple-macosx/debug/LangSwitcher.build/sources"]
+    description: "Write auxiliary file /Users/tetrex/Documents/LangSwitcher/apps/macos/.build/arm64-apple-macosx/debug/LangSwitcher.build/sources"
+
+  "/Users/tetrex/Documents/LangSwitcher/apps/macos/.build/arm64-apple-macosx/debug/LangSwitcher.product/Objects.LinkFileList":
+    tool: write-auxiliary-file
+    inputs: ["<link-file-list>","/Users/tetrex/Documents/LangSwitcher/apps/macos/.build/arm64-apple-macosx/debug/LangSwitcher.build/AboutWindowController.swift.o","/Users/tetrex/Documents/LangSwitcher/apps/macos/.build/arm64-apple-macosx/debug/LangSwitcher.build/CyrillicMapper.swift.o","/Users/tetrex/Documents/LangSwitcher/apps/macos/.build/arm64-apple-macosx/debug/LangSwitcher.build/KeyboardInterceptor.swift.o","/Users/tetrex/Documents/LangSwitcher/apps/macos/.build/arm64-apple-macosx/debug/LangSwitcher.build/LangSwitcher.swift.o","/Users/tetrex/Documents/LangSwitcher/apps/macos/.build/arm64-apple-macosx/debug/LangSwitcher.build/MenuBarController.swift.o","/Users/tetrex/Documents/LangSwitcher/apps/macos/.build/arm64-apple-macosx/debug/LangSwitcher.build/SettingsWindowController.swift.o","/Users/tetrex/Documents/LangSwitcher/apps/macos/.build/arm64-apple-macosx/debug/LangSwitcher.build/TextShortcutsStore.swift.o","/Users/tetrex/Documents/LangSwitcher/apps/macos/.build/arm64-apple-macosx/debug/LangSwitcher.build/WelcomeWindowController.swift.o","/Users/tetrex/Documents/LangSwitcher/apps/macos/.build/arm64-apple-macosx/debug/LangSwitcher.build/resource_bundle_accessor.swift.o"]
+    outputs: ["/Users/tetrex/Documents/LangSwitcher/apps/macos/.build/arm64-apple-macosx/debug/LangSwitcher.product/Objects.LinkFileList"]
+    description: "Write auxiliary file /Users/tetrex/Documents/LangSwitcher/apps/macos/.build/arm64-apple-macosx/debug/LangSwitcher.product/Objects.LinkFileList"
+
+  "/Users/tetrex/Documents/LangSwitcher/apps/macos/.build/arm64-apple-macosx/debug/langSwitch_LangSwitcher.bundle/AppIcon.icon":
+    tool: copy-tool
+    inputs: ["/Users/tetrex/Documents/LangSwitcher/apps/macos/Sources/LangSwitcher/AppIcon.icon/"]
+    outputs: ["/Users/tetrex/Documents/LangSwitcher/apps/macos/.build/arm64-apple-macosx/debug/langSwitch_LangSwitcher.bundle/AppIcon.icon/"]
+    description: "Copying /Users/tetrex/Documents/LangSwitcher/apps/macos/Sources/LangSwitcher/AppIcon.icon"
+
+  "/Users/tetrex/Documents/LangSwitcher/apps/macos/.build/arm64-apple-macosx/debug/swift-version--58304C5D6DBC2206.txt":
+    tool: write-auxiliary-file
+    inputs: ["<swift-get-version>","/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc"]
+    outputs: ["/Users/tetrex/Documents/LangSwitcher/apps/macos/.build/arm64-apple-macosx/debug/swift-version--58304C5D6DBC2206.txt"]
+    always-out-of-date: "true"
+    description: "Write auxiliary file /Users/tetrex/Documents/LangSwitcher/apps/macos/.build/arm64-apple-macosx/debug/swift-version--58304C5D6DBC2206.txt"
+
+  "<LangSwitcher-arm64-apple-macosx15.0-debug.exe>":
+    tool: phony
+    inputs: ["<LangSwitcher-arm64-apple-macosx15.0-debug.exe-CodeSigning>"]
+    outputs: ["<LangSwitcher-arm64-apple-macosx15.0-debug.exe>"]
+
+  "<LangSwitcher-arm64-apple-macosx15.0-debug.module>":
+    tool: phony
+    inputs: ["/Users/tetrex/Documents/LangSwitcher/apps/macos/.build/arm64-apple-macosx/debug/LangSwitcher.build/AboutWindowController.swift.o","/Users/tetrex/Documents/LangSwitcher/apps/macos/.build/arm64-apple-macosx/debug/LangSwitcher.build/CyrillicMapper.swift.o","/Users/tetrex/Documents/LangSwitcher/apps/macos/.build/arm64-apple-macosx/debug/LangSwitcher.build/KeyboardInterceptor.swift.o","/Users/tetrex/Documents/LangSwitcher/apps/macos/.build/arm64-apple-macosx/debug/LangSwitcher.build/LangSwitcher.swift.o","/Users/tetrex/Documents/LangSwitcher/apps/macos/.build/arm64-apple-macosx/debug/LangSwitcher.build/MenuBarController.swift.o","/Users/tetrex/Documents/LangSwitcher/apps/macos/.build/arm64-apple-macosx/debug/LangSwitcher.build/SettingsWindowController.swift.o","/Users/tetrex/Documents/LangSwitcher/apps/macos/.build/arm64-apple-macosx/debug/LangSwitcher.build/TextShortcutsStore.swift.o","/Users/tetrex/Documents/LangSwitcher/apps/macos/.build/arm64-apple-macosx/debug/LangSwitcher.build/WelcomeWindowController.swift.o","/Users/tetrex/Documents/LangSwitcher/apps/macos/.build/arm64-apple-macosx/debug/LangSwitcher.build/resource_bundle_accessor.swift.o","/Users/tetrex/Documents/LangSwitcher/apps/macos/.build/arm64-apple-macosx/debug/Modules/LangSwitcher.swiftmodule"]
+    outputs: ["<LangSwitcher-arm64-apple-macosx15.0-debug.module>"]
+
+  "C.LangSwitcher-arm64-apple-macosx15.0-debug.exe":
+    tool: shell
+    inputs: ["/Users/tetrex/Documents/LangSwitcher/apps/macos/.build/arm64-apple-macosx/debug/LangSwitcher.build/AboutWindowController.swift.o","/Users/tetrex/Documents/LangSwitcher/apps/macos/.build/arm64-apple-macosx/debug/LangSwitcher.build/CyrillicMapper.swift.o","/Users/tetrex/Documents/LangSwitcher/apps/macos/.build/arm64-apple-macosx/debug/LangSwitcher.build/KeyboardInterceptor.swift.o","/Users/tetrex/Documents/LangSwitcher/apps/macos/.build/arm64-apple-macosx/debug/LangSwitcher.build/LangSwitcher.swift.o","/Users/tetrex/Documents/LangSwitcher/apps/macos/.build/arm64-apple-macosx/debug/LangSwitcher.build/MenuBarController.swift.o","/Users/tetrex/Documents/LangSwitcher/apps/macos/.build/arm64-apple-macosx/debug/LangSwitcher.build/SettingsWindowController.swift.o","/Users/tetrex/Documents/LangSwitcher/apps/macos/.build/arm64-apple-macosx/debug/LangSwitcher.build/TextShortcutsStore.swift.o","/Users/tetrex/Documents/LangSwitcher/apps/macos/.build/arm64-apple-macosx/debug/LangSwitcher.build/WelcomeWindowController.swift.o","/Users/tetrex/Documents/LangSwitcher/apps/macos/.build/arm64-apple-macosx/debug/LangSwitcher.build/resource_bundle_accessor.swift.o","/Users/tetrex/Documents/LangSwitcher/apps/macos/.build/arm64-apple-macosx/debug/LangSwitcher.product/Objects.LinkFileList"]
+    outputs: ["/Users/tetrex/Documents/LangSwitcher/apps/macos/.build/arm64-apple-macosx/debug/LangSwitcher"]
+    description: "Linking ./.build/arm64-apple-macosx/debug/LangSwitcher"
+    args: ["/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc","-L","/Users/tetrex/Documents/LangSwitcher/apps/macos/.build/arm64-apple-macosx/debug","-o","/Users/tetrex/Documents/LangSwitcher/apps/macos/.build/arm64-apple-macosx/debug/LangSwitcher","-module-name","LangSwitcher","-Xlinker","-no_warn_duplicate_libraries","-emit-executable","-Xlinker","-alias","-Xlinker","_LangSwitcher_main","-Xlinker","_main","-Xlinker","-rpath","-Xlinker","@loader_path","@/Users/tetrex/Documents/LangSwitcher/apps/macos/.build/arm64-apple-macosx/debug/LangSwitcher.product/Objects.LinkFileList","-Xlinker","-rpath","-Xlinker","/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift-6.2/macosx","-target","arm64-apple-macosx13.0","-Xlinker","-sectcreate","-Xlinker","__TEXT","-Xlinker","__info_plist","-Xlinker","Sources/LangSwitcher/Info.plist","-Xlinker","-add_ast_path","-Xlinker","/Users/tetrex/Documents/LangSwitcher/apps/macos/.build/arm64-apple-macosx/debug/Modules/LangSwitcher.swiftmodule","-plugin-path","/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing","-sdk","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.2.sdk","-F","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks","-F","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/PrivateFrameworks","-I","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib","-L","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib","-g"]
+
+  "C.LangSwitcher-arm64-apple-macosx15.0-debug.exe-entitlements":
+    tool: shell
+    inputs: ["/Users/tetrex/Documents/LangSwitcher/apps/macos/.build/arm64-apple-macosx/debug/LangSwitcher","/Users/tetrex/Documents/LangSwitcher/apps/macos/.build/arm64-apple-macosx/debug/LangSwitcher-entitlement.plist"]
+    outputs: ["<LangSwitcher-arm64-apple-macosx15.0-debug.exe-CodeSigning>"]
+    description: "Applying debug entitlements to ./.build/arm64-apple-macosx/debug/LangSwitcher"
+    args: ["codesign","--force","--sign","-","--entitlements","/Users/tetrex/Documents/LangSwitcher/apps/macos/.build/arm64-apple-macosx/debug/LangSwitcher-entitlement.plist","/Users/tetrex/Documents/LangSwitcher/apps/macos/.build/arm64-apple-macosx/debug/LangSwitcher"]
+
+  "C.LangSwitcher-arm64-apple-macosx15.0-debug.module":
+    tool: shell
+    inputs: ["/Users/tetrex/Documents/LangSwitcher/apps/macos/Sources/LangSwitcher/AboutWindowController.swift","/Users/tetrex/Documents/LangSwitcher/apps/macos/Sources/LangSwitcher/CyrillicMapper.swift","/Users/tetrex/Documents/LangSwitcher/apps/macos/Sources/LangSwitcher/KeyboardInterceptor.swift","/Users/tetrex/Documents/LangSwitcher/apps/macos/Sources/LangSwitcher/LangSwitcher.swift","/Users/tetrex/Documents/LangSwitcher/apps/macos/Sources/LangSwitcher/MenuBarController.swift","/Users/tetrex/Documents/LangSwitcher/apps/macos/Sources/LangSwitcher/SettingsWindowController.swift","/Users/tetrex/Documents/LangSwitcher/apps/macos/Sources/LangSwitcher/TextShortcutsStore.swift","/Users/tetrex/Documents/LangSwitcher/apps/macos/Sources/LangSwitcher/WelcomeWindowController.swift","/Users/tetrex/Documents/LangSwitcher/apps/macos/.build/arm64-apple-macosx/debug/LangSwitcher.build/DerivedSources/resource_bundle_accessor.swift","/Users/tetrex/Documents/LangSwitcher/apps/macos/.build/arm64-apple-macosx/debug/swift-version--58304C5D6DBC2206.txt","<LangSwitcher-arm64-apple-macosx15.0-debug.module-resources>","/Users/tetrex/Documents/LangSwitcher/apps/macos/.build/arm64-apple-macosx/debug/LangSwitcher.build/sources"]
+    outputs: ["/Users/tetrex/Documents/LangSwitcher/apps/macos/.build/arm64-apple-macosx/debug/LangSwitcher.build/AboutWindowController.swift.o","/Users/tetrex/Documents/LangSwitcher/apps/macos/.build/arm64-apple-macosx/debug/LangSwitcher.build/CyrillicMapper.swift.o","/Users/tetrex/Documents/LangSwitcher/apps/macos/.build/arm64-apple-macosx/debug/LangSwitcher.build/KeyboardInterceptor.swift.o","/Users/tetrex/Documents/LangSwitcher/apps/macos/.build/arm64-apple-macosx/debug/LangSwitcher.build/LangSwitcher.swift.o","/Users/tetrex/Documents/LangSwitcher/apps/macos/.build/arm64-apple-macosx/debug/LangSwitcher.build/MenuBarController.swift.o","/Users/tetrex/Documents/LangSwitcher/apps/macos/.build/arm64-apple-macosx/debug/LangSwitcher.build/SettingsWindowController.swift.o","/Users/tetrex/Documents/LangSwitcher/apps/macos/.build/arm64-apple-macosx/debug/LangSwitcher.build/TextShortcutsStore.swift.o","/Users/tetrex/Documents/LangSwitcher/apps/macos/.build/arm64-apple-macosx/debug/LangSwitcher.build/WelcomeWindowController.swift.o","/Users/tetrex/Documents/LangSwitcher/apps/macos/.build/arm64-apple-macosx/debug/LangSwitcher.build/resource_bundle_accessor.swift.o","/Users/tetrex/Documents/LangSwitcher/apps/macos/.build/arm64-apple-macosx/debug/Modules/LangSwitcher.swiftmodule"]
+    description: "Compiling Swift Module 'LangSwitcher' (9 sources)"
+    args: ["/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc","-module-name","LangSwitcher","-emit-dependencies","-emit-module","-emit-module-path","/Users/tetrex/Documents/LangSwitcher/apps/macos/.build/arm64-apple-macosx/debug/Modules/LangSwitcher.swiftmodule","-output-file-map","/Users/tetrex/Documents/LangSwitcher/apps/macos/.build/arm64-apple-macosx/debug/LangSwitcher.build/output-file-map.json","-incremental","-c","@/Users/tetrex/Documents/LangSwitcher/apps/macos/.build/arm64-apple-macosx/debug/LangSwitcher.build/sources","-I","/Users/tetrex/Documents/LangSwitcher/apps/macos/.build/arm64-apple-macosx/debug/Modules","-target","arm64-apple-macosx13.0","-incremental","-enable-batch-mode","-serialize-diagnostics","-index-store-path","/Users/tetrex/Documents/LangSwitcher/apps/macos/.build/arm64-apple-macosx/debug/index/store","-Onone","-enable-testing","-j8","-DSWIFT_PACKAGE","-DDEBUG","-DSWIFT_MODULE_RESOURCE_BUNDLE_AVAILABLE","-module-cache-path","/Users/tetrex/Documents/LangSwitcher/apps/macos/.build/arm64-apple-macosx/debug/ModuleCache","-parseable-output","-Xfrontend","-entry-point-function-name","-Xfrontend","LangSwitcher_main","-color-diagnostics","-swift-version","6","-plugin-path","/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing","-sdk","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.2.sdk","-F","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks","-F","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/PrivateFrameworks","-I","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib","-L","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib","-g","-Xcc","-isysroot","-Xcc","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.2.sdk","-Xcc","-F","-Xcc","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks","-Xcc","-F","-Xcc","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/PrivateFrameworks","-Xcc","-fPIC","-Xcc","-g","-package-name","macos"]
+
+  "LangSwitcher-arm64-apple-macosx15.0-debug.module-resources":
+    tool: phony
+    inputs: ["/Users/tetrex/Documents/LangSwitcher/apps/macos/.build/arm64-apple-macosx/debug/langSwitch_LangSwitcher.bundle/AppIcon.icon/"]
+    outputs: ["<LangSwitcher-arm64-apple-macosx15.0-debug.module-resources>"]
+
+  "PackageStructure":
+    tool: package-structure-tool
+    inputs: ["/Users/tetrex/Documents/LangSwitcher/apps/macos/Sources/LangSwitcher/","/Users/tetrex/Documents/LangSwitcher/apps/macos/Package.swift","/Users/tetrex/Documents/LangSwitcher/apps/macos/Package.resolved"]
+    outputs: ["<PackageStructure>"]
+    description: "Planning build"
+    allow-missing-inputs: true
+

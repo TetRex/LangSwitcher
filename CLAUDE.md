@@ -2,19 +2,34 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Monorepo Structure
+
+```
+apps/
+├── macos/    — Swift/AppKit macOS app
+└── windows/  — C# Windows app
+```
+
 ## Build & Run
 
-This project has both an Xcode project (`LangSwitcher.xcodeproj`) and a Swift Package (`Package.swift`). Use whichever suits the task; Xcode is preferred for signing/distribution.
+### macOS (`apps/macos/`)
+
+The macOS app has both an Xcode project (`LangSwitcher.xcodeproj`) and a Swift Package (`Package.swift`). Use whichever suits the task; Xcode is preferred for signing/distribution.
 
 **Swift Package (CLI):**
 ```bash
+cd apps/macos
 swift build                          # debug build
 swift build -c release               # release build
 swift run                            # build + run (requires Accessibility permission)
 ```
 
 **Xcode:**
-Open `LangSwitcher.xcodeproj` and use the standard Build/Run commands (⌘B / ⌘R).
+Open `apps/macos/LangSwitcher.xcodeproj` and use the standard Build/Run commands (⌘B / ⌘R).
+
+### Windows (`apps/windows/`)
+
+C# project. Open the `.sln` file in Visual Studio or use `dotnet` CLI.
 
 There are no automated tests in this project.
 
