@@ -138,11 +138,8 @@ public sealed class SpellChecker : IDisposable
             int nextHr = errors.Next(out var ptr);
             Logger.Log($"  TestWord '{word}'/'{lang}': Next() hr=0x{nextHr:X8} (0=error found, 1=no errors=valid)");
 
-            // Release the ISpellingError COM ptr if one was returned
-            if (ptr != IntPtr.Zero)
-            {
-                Marshal.Release(ptr);
-            }
+            // Only release if Next() actually returned an error object (S_OK).
+            if (nextHr == 0 && ptr != IntPtr.Zero) Marshal.Release(ptr);
             Marshal.ReleaseComObject(errors);
             Marshal.ReleaseComObject(checker);
 
@@ -195,8 +192,11 @@ public sealed class SpellChecker : IDisposable
             if (checkHr != 0 || errors == null) return false;
 
             int nextHr = errors.Next(out var ptr);
-            Logger.Log($"    Next() hr=0x{nextHr:X8} ptr={ptr} (1=S_FALSE=valid, 0=S_OK=has errors)");
-            if (ptr != IntPtr.Zero) Marshal.Release(ptr);
+            Logger.Log($"    Next() hr=0x{nextHr:X8} (1=S_FALSE=valid, 0=S_OK=has errors)");
+            // Only release the ISpellingError object when Next() returned S_OK (0),
+            // meaning it actually gave us an error. On S_FALSE the ptr is undefined —
+            // calling Marshal.Release on it would corrupt the COM server state.
+            if (nextHr == 0 && ptr != IntPtr.Zero) Marshal.Release(ptr);
             Marshal.ReleaseComObject(errors);
 
             return nextHr != 0; // S_FALSE (1) = no errors = valid

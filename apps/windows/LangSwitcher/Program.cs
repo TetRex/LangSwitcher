@@ -45,6 +45,7 @@ internal static class Program
 
         hook.Uninstall();
         spell.Dispose();
+
         settings.Save();
     }
 }

@@ -45,11 +45,12 @@ public static class TextReplacer
     /// Deletes <paramref name="charCount"/> characters then types <paramref name="replacement"/>.
     /// Optionally appends a trailing character (Space or Enter from the original trigger event).
     /// </summary>
-    public static void Replace(int charCount, string replacement, char? trailingChar = null)
+    /// Returns the number of events successfully injected by SendInput (0 = blocked).
+    public static uint Replace(int charCount, string replacement, char? trailingChar = null)
     {
         var inputs = BuildInputs(charCount, replacement, trailingChar);
-        if (inputs.Length > 0)
-            SendInput((uint)inputs.Length, inputs, Marshal.SizeOf<INPUT>());
+        if (inputs.Length == 0) return 0;
+        return SendInput((uint)inputs.Length, inputs, Marshal.SizeOf<INPUT>());
     }
 
     private static INPUT[] BuildInputs(int backspaceCount, string text, char? trailingChar)

@@ -308,7 +308,9 @@ public sealed class KeyboardHook : IDisposable
     private void Correct(string original, string replacement, char trailing,
                          bool switchLayout, bool cyrillicToEn = false)
     {
-        TextReplacer.Replace(original.Length, replacement, trailing);
+        Log($"  CORRECTING '{original}' → '{replacement}' trailing='{trailing}'");
+        uint sent = TextReplacer.Replace(original.Length, replacement, trailing);
+        Log($"  SendInput sent={sent} (expected={(original.Length * 2) + (replacement.Length + 1) * 2})");
 
         if (switchLayout && _settings.AutoSwitchLayout)
         {
