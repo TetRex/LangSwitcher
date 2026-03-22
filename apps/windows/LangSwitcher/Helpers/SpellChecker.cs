@@ -126,14 +126,16 @@ public sealed class SpellChecker : IDisposable
             _factory.CreateSpellChecker(lang, out var checker);
             if (checker == null) { Logger.Log($"  TestWord: checker for '{lang}' is null"); return false; }
 
+            // Cache immediately — releasing all checkers causes the out-of-process
+            // spell checker service to terminate, making IsSupported() return False
+            // for all subsequent calls. Keeping the checker alive prevents that.
+            _checkers[lang] = checker;
+
             int checkHr = checker.Check(word, out var errors);
             Logger.Log($"  TestWord '{word}'/'{lang}': Check() hr=0x{checkHr:X8} errors={(errors != null ? "ok" : "null")}");
 
             if (checkHr != 0 || errors == null)
-            {
-                Marshal.ReleaseComObject(checker);
                 return false;
-            }
 
             int nextHr = errors.Next(out var ptr);
             Logger.Log($"  TestWord '{word}'/'{lang}': Next() hr=0x{nextHr:X8} (0=error found, 1=no errors=valid)");
@@ -141,7 +143,6 @@ public sealed class SpellChecker : IDisposable
             // Only release if Next() actually returned an error object (S_OK).
             if (nextHr == 0 && ptr != IntPtr.Zero) Marshal.Release(ptr);
             Marshal.ReleaseComObject(errors);
-            Marshal.ReleaseComObject(checker);
 
             return nextHr != 0; // S_FALSE (1) = no spelling errors = word is valid
         }

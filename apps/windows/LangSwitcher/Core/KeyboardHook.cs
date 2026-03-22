@@ -89,6 +89,12 @@ public sealed class KeyboardHook : IDisposable
     private DateTime _lastForceConvertTime = DateTime.MinValue;
     private const double DoubleTapIntervalMs = 400;
 
+    // Async correction dispatch — SendInput must run AFTER the hook callback returns.
+    private record PendingCorrection(string Original, string Replacement, char? Trailing,
+                                     bool SwitchLayout, bool CyrillicToEn);
+    private PendingCorrection? _pending;
+    private readonly System.Windows.Forms.Timer _correctionTimer;
+
     // ── Events ────────────────────────────────────────────────────────────────
 
     /// Fired when a correction is made. Args: (original, corrected).
@@ -101,6 +107,9 @@ public sealed class KeyboardHook : IDisposable
         _settings  = settings;
         _converter = converter;
         _proc = HookCallback; // keep delegate alive
+
+        _correctionTimer = new System.Windows.Forms.Timer { Interval = 1 };
+        _correctionTimer.Tick += OnCorrectionTimer;
     }
 
     public void Install()
@@ -119,7 +128,11 @@ public sealed class KeyboardHook : IDisposable
         _hook = IntPtr.Zero;
     }
 
-    public void Dispose() => Uninstall();
+    public void Dispose()
+    {
+        Uninstall();
+        _correctionTimer.Dispose();
+    }
 
     // ── Hook callback ─────────────────────────────────────────────────────────
 
@@ -210,7 +223,7 @@ public sealed class KeyboardHook : IDisposable
             if (expansion != null)
             {
                 Log($"  → shortcut expansion: '{expansion}'");
-                Correct(word, expansion, trailing, switchLayout: false);
+                ScheduleCorrection(word, expansion, trailing, switchLayout: false);
                 return (IntPtr)1;
             }
 
@@ -231,7 +244,7 @@ public sealed class KeyboardHook : IDisposable
                 Log($"  cyrToEn='{english}' validEnglish={validEnglish}");
                 if (english != null && validEnglish)
                 {
-                    Correct(word, english, trailing, switchLayout: true, cyrillicToEn: true);
+                    ScheduleCorrection(word, english, trailing, switchLayout: true, cyrillicToEn: true);
                     return (IntPtr)1;
                 }
             }
@@ -249,7 +262,7 @@ public sealed class KeyboardHook : IDisposable
                 Log($"  enToCyr='{cyrillic}'");
                 if (cyrillic != null)
                 {
-                    Correct(word, cyrillic, trailing, switchLayout: true, cyrillicToEn: false);
+                    ScheduleCorrection(word, cyrillic, trailing, switchLayout: true, cyrillicToEn: false);
                     return (IntPtr)1;
                 }
             }
@@ -281,16 +294,7 @@ public sealed class KeyboardHook : IDisposable
 
         var english = LayoutConverter.ConvertIncludingLatin(word);
         if (english != null)
-        {
-            TextReplacer.Replace(word.Length, english, null);
-
-            if (_settings.AutoSwitchLayout)
-                LayoutSwitcher.SwitchToEnglish();
-
-            _settings.CorrectionCount++;
-            _settings.Save();
-            CorrectionMade?.Invoke(word, english);
-        }
+            ScheduleCorrection(word, english, trailing: null, switchLayout: true, cyrillicToEn: true);
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
@@ -303,14 +307,35 @@ public sealed class KeyboardHook : IDisposable
     private static bool HasEnglishVowel(string word) =>
         word.Any(c => EnglishVowels.Contains(c));
 
+    // ── Async correction dispatch ─────────────────────────────────────────────
+
+    private void ScheduleCorrection(string original, string replacement, char? trailing,
+                                    bool switchLayout, bool cyrillicToEn = false)
+    {
+        _pending = new PendingCorrection(original, replacement, trailing, switchLayout, cyrillicToEn);
+        _correctionTimer.Stop();
+        _correctionTimer.Start();
+    }
+
+    private void OnCorrectionTimer(object? sender, EventArgs e)
+    {
+        _correctionTimer.Stop();
+        if (_pending is { } p)
+        {
+            _pending = null;
+            Correct(p.Original, p.Replacement, p.Trailing, p.SwitchLayout, p.CyrillicToEn);
+        }
+    }
+
     // ── Correction ────────────────────────────────────────────────────────────
 
-    private void Correct(string original, string replacement, char trailing,
+    private void Correct(string original, string replacement, char? trailing,
                          bool switchLayout, bool cyrillicToEn = false)
     {
-        Log($"  CORRECTING '{original}' → '{replacement}' trailing='{trailing}'");
+        Log($"  CORRECTING '{original}' → '{replacement}' trailing='{(trailing.HasValue ? trailing.Value : '∅')}'");
         uint sent = TextReplacer.Replace(original.Length, replacement, trailing);
-        Log($"  SendInput sent={sent} (expected={(original.Length * 2) + (replacement.Length + 1) * 2})");
+        int expectedEvents = original.Length * 2 + (replacement.Length + (trailing.HasValue ? 1 : 0)) * 2;
+        Log($"  SendInput sent={sent} expected={expectedEvents}");
 
         if (switchLayout && _settings.AutoSwitchLayout)
         {
