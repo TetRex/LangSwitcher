@@ -338,28 +338,48 @@ public sealed class KeyboardHook : IDisposable
 
     // ── VK → char ─────────────────────────────────────────────────────────────
 
-    [DllImport("user32.dll")] private static extern int ToUnicodeEx(uint wVirtKey, uint wScanCode, byte[] lpKeyState, [Out, MarshalAs(UnmanagedType.LPWStr)] System.Text.StringBuilder pwszBuff, int cchBuff, uint wFlags, IntPtr dwhkl);
-    [DllImport("user32.dll")] private static extern bool GetKeyboardState(byte[] lpKeyState);
+    // MapVirtualKeyEx with MAPVK_VK_TO_CHAR (2) returns the base Unicode character
+    // for the key on the given layout — no keyboard state required, safe in any context.
+    [DllImport("user32.dll")] private static extern uint MapVirtualKeyEx(uint uCode, uint uMapType, IntPtr dwhkl);
+    [DllImport("user32.dll")] private static extern short GetAsyncKeyState(int vKey);
     [DllImport("user32.dll")] private static extern IntPtr GetKeyboardLayout(uint idThread);
 
     private static char VkToChar(uint vk, uint scan)
     {
-        // GetKeyboardState gives the full modifier state (Shift, CapsLock, AltGr, …)
-        // which is required for correct ToUnicodeEx results on all layouts.
-        var keyState = new byte[256];
-        if (!GetKeyboardState(keyState)) return '\0';
+        var  hwnd = GetForegroundWindow();
+        uint tid  = GetWindowThreadProcessId(hwnd, out _);
+        var  hkl  = GetKeyboardLayout(tid);
 
-        var  hwnd   = GetForegroundWindow();
-        uint tid    = GetWindowThreadProcessId(hwnd, out _);
-        var  hkl    = GetKeyboardLayout(tid);
-        var  sb     = new System.Text.StringBuilder(8);
+        // High bit of the return value = dead key: skip those.
+        uint code = MapVirtualKeyEx(vk, 2 /* MAPVK_VK_TO_CHAR */, hkl);
+        if (code == 0 || (code & 0x80000000) != 0) return '\0';
 
-        // wFlags = 4 prevents ToUnicodeEx from modifying the dead-key state in the driver,
-        // which would corrupt typing on layouts that use dead keys (e.g. French, German).
-        int result = ToUnicodeEx(vk, scan, keyState, sb, sb.Capacity, 4, hkl);
+        char ch = (char)(code & 0xFFFF);
 
-        // result > 0: characters written; result < 0: dead key (ignore); 0: no translation
-        if (result > 0) return sb[0];
-        return '\0';
+        // Apply Shift / CapsLock for correct case.
+        // GetAsyncKeyState is reliable even inside a low-level hook callback.
+        bool shift    = (GetAsyncKeyState(0x10) & 0x8000) != 0; // VK_SHIFT
+        bool capsLock = (GetKeyState(0x14) & 0x0001) != 0;       // VK_CAPITAL toggle bit
+        bool upper    = shift ^ capsLock;
+
+        if (char.IsLetter(ch))
+            return upper ? char.ToUpper(ch) : char.ToLower(ch);
+
+        // Shift changes punctuation characters on standard layouts.
+        if (upper)
+        {
+            return ch switch
+            {
+                '`'  => '~',  '1' => '!',  '2' => '@',  '3' => '#',
+                '4'  => '$',  '5' => '%',  '6' => '^',  '7' => '&',
+                '8'  => '*',  '9' => '(',  '0' => ')',  '-' => '_',
+                '='  => '+',  '[' => '{',  ']' => '}',  '\\' => '|',
+                ';'  => ':',  '\'' => '"', ',' => '<',  '.' => '>',
+                '/'  => '?',
+                _ => ch,
+            };
+        }
+
+        return ch;
     }
 }
