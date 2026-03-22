@@ -81,6 +81,7 @@ public sealed class KeyboardHook : IDisposable
 
     private readonly AppSettings _settings;
     private readonly LayoutConverter _converter;
+    private bool SpellCheckAvailable => _converter.SpellCheckAvailable;
     private readonly WordBuffer _buffer = new();
     private readonly LowLevelKeyboardProc _proc; // keep alive to prevent GC
     private IntPtr _hook = IntPtr.Zero;
@@ -214,12 +215,19 @@ public sealed class KeyboardHook : IDisposable
             }
 
             // 2. Cyrillic → English
-            bool validCyrillic = _converter.IsValidCyrillicWordConsideringLatinOverlap(word);
-            Log($"  validCyrillic={validCyrillic}");
+            // Guard: skip if the word is already a valid Cyrillic word (don't fix what's right).
+            // When spell check is unavailable, only skip if the word is pure ASCII (not Cyrillic at all).
+            bool validCyrillic = SpellCheckAvailable
+                ? _converter.IsValidCyrillicWordConsideringLatinOverlap(word)
+                : word.All(c => c < 128); // ASCII-only → definitely not a Cyrillic mistype
+            Log($"  validCyrillic={validCyrillic} (spellOk={SpellCheckAvailable})");
             if (!validCyrillic)
             {
                 var english = LayoutConverter.ConvertIncludingLatin(word);
-                bool validEnglish = english != null && _converter.IsValidEnglishWord(english);
+                // When spell check works, validate the English result.
+                // When unavailable, accept any clean conversion (all chars mapped).
+                bool validEnglish = english != null &&
+                    (SpellCheckAvailable ? _converter.IsValidEnglishWord(english) : true);
                 Log($"  cyrToEn='{english}' validEnglish={validEnglish}");
                 if (english != null && validEnglish)
                 {
@@ -229,8 +237,12 @@ public sealed class KeyboardHook : IDisposable
             }
 
             // 3. English → Cyrillic
-            bool validEnWord = _converter.IsValidEnglishWord(word);
-            Log($"  validEnglish(original)={validEnWord}");
+            // Guard: skip if the word is already valid English.
+            // When spell check is unavailable, skip only obvious English words (contains vowels).
+            bool validEnWord = SpellCheckAvailable
+                ? _converter.IsValidEnglishWord(word)
+                : HasEnglishVowel(word); // real English words almost always have vowels
+            Log($"  validEnglish(original)={validEnWord} (spellOk={SpellCheckAvailable})");
             if (!validEnWord)
             {
                 var cyrillic = _converter.ConvertEnglishMistypeToValidCyrillic(word);
@@ -280,6 +292,16 @@ public sealed class KeyboardHook : IDisposable
             CorrectionMade?.Invoke(word, english);
         }
     }
+
+    // ── Helpers ───────────────────────────────────────────────────────────────
+
+    private static readonly HashSet<char> EnglishVowels = new("aeiouAEIOU");
+
+    /// Heuristic: real English words almost always contain at least one vowel.
+    /// Used as a cheap "is this plausibly English?" guard when the spell checker
+    /// is unavailable, to avoid correcting things like "ghbdtn" (no vowels).
+    private static bool HasEnglishVowel(string word) =>
+        word.Any(c => EnglishVowels.Contains(c));
 
     // ── Correction ────────────────────────────────────────────────────────────
 

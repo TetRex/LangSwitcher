@@ -1,7 +1,6 @@
 using LangSwitcher.Core;
 using LangSwitcher.Helpers;
 using LangSwitcher.Models;
-using System.Diagnostics;
 
 namespace LangSwitcher.UI;
 
@@ -67,7 +66,7 @@ public sealed class TrayIcon : IDisposable
 
         var settingsItem = new ToolStripMenuItem("Settings…", null, OnOpenSettings);
         var aboutItem    = new ToolStripMenuItem("About", null, OnAbout);
-        var logItem      = new ToolStripMenuItem("View Debug Log", null, OnViewLog);
+        var logItem      = new ToolStripMenuItem("Debug Window", null, OnViewLog);
         var quitItem     = new ToolStripMenuItem("Quit", null, OnQuit);
 
         var menu = new ContextMenuStrip();
@@ -112,10 +111,17 @@ public sealed class TrayIcon : IDisposable
             MessageBoxIcon.Information);
     }
 
+    private DebugWindow? _debugWindow;
+
     private void OnViewLog(object? sender, EventArgs e)
     {
-        try { Process.Start("notepad.exe", Logger.LogPath); }
-        catch { MessageBox.Show(Logger.LogPath, "Log location"); }
+        if (_debugWindow == null || _debugWindow.IsDisposed)
+        {
+            _debugWindow = new DebugWindow();
+            _debugWindow.FormClosed += (_, _) => _debugWindow = null;
+        }
+        _debugWindow.Show();
+        _debugWindow.BringToFront();
     }
 
     private void OnQuit(object? sender, EventArgs e)

@@ -11,6 +11,8 @@ public sealed class LayoutConverter
 
     public LayoutConverter(SpellChecker spell) => _spell = spell;
 
+    public bool SpellCheckAvailable => _spell.IsAvailable;
+
     // ── Cyrillic → EN (ЙЦУКЕН + Ukrainian) ───────────────────────────────────
 
     private static readonly Dictionary<char, char> CyrillicToEn = new()
@@ -136,10 +138,25 @@ public sealed class LayoutConverter
     {
         if (string.IsNullOrEmpty(word)) return null;
         var candidates = BuildCyrillicCandidates(word);
-        foreach (var candidate in candidates)
-            if (_spell.IsValidCyrillicWord(candidate))
-                return candidate;
-        return null;
+
+        if (_spell.IsAvailable)
+        {
+            // Spell checker works: only accept a validated word
+            foreach (var candidate in candidates)
+                if (_spell.IsValidCyrillicWord(candidate))
+                    return candidate;
+            return null;
+        }
+        else
+        {
+            // No spell checker: return the first candidate only when there is no
+            // mapping ambiguity (i.e. every character has exactly one Cyrillic option).
+            // This avoids correcting real English words while still catching obvious
+            // layout mistakes like "ghbdtn" → "привет".
+            if (candidates.Count == 1)
+                return candidates[0];
+            return null;
+        }
     }
 
     public string? CyrillicWordLanguage(string word) => _spell.CyrillicWordLanguage(word);

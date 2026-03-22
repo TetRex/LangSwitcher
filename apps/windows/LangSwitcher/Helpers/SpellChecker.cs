@@ -43,9 +43,8 @@ public sealed class SpellChecker : IDisposable
     [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
     private interface IEnumSpellingError
     {
-        // Returns S_OK (0) + a valid error when a misspelling is found;
-        // Returns S_FALSE (1) when no more errors (word is correct).
-        [PreserveSig] int Next(out IntPtr value); // IntPtr avoids null COM ptr marshaling issues
+        // S_OK (0) = spelling error found; S_FALSE (1) = no more errors = word is correct
+        [PreserveSig] int Next(out IntPtr spellingError);
     }
 
     [ComImport, Guid("00000101-0000-0000-C000-000000000046")]
@@ -58,7 +57,6 @@ public sealed class SpellChecker : IDisposable
         [PreserveSig] int Clone(out IEnumString ppenum);
     }
 
-    // CLSID for SpellCheckerFactory
     private static readonly Guid ClsidSpellCheckerFactory = new("7AB36653-1796-484B-BDFA-E74F1DB7C1DC");
 
     // ── State ─────────────────────────────────────────────────────────────────
@@ -66,32 +64,94 @@ public sealed class SpellChecker : IDisposable
     private ISpellCheckerFactory? _factory;
     private readonly Dictionary<string, ISpellChecker?> _checkers = new();
 
-    /// True when the Windows spell-check COM server initialised successfully.
-    public bool IsAvailable => _factory != null;
+    /// True when the Windows spell-check COM server initialised and a self-test passed.
+    public bool IsAvailable { get; private set; }
 
     private static readonly string[] CyrillicLanguages = ["ru-RU", "uk-UA"];
     private static readonly string[] EnglishLanguages  = ["en-US", "en-GB"];
 
     public SpellChecker()
     {
+        Logger.Log("SpellChecker: initialising…");
         try
         {
-            // Use Activator.CreateInstance for safer COM activation than [ComImport] new()
             var type = Type.GetTypeFromCLSID(ClsidSpellCheckerFactory, throwOnError: true)!;
             _factory = (ISpellCheckerFactory)Activator.CreateInstance(type)!;
-            Logger.Log($"SpellChecker: COM factory created OK.");
-
-            // Log which languages are actually supported
-            foreach (var lang in CyrillicLanguages.Concat(EnglishLanguages))
-            {
-                _factory.IsSupported(lang, out bool supported);
-                Logger.Log($"  language '{lang}' supported={supported}");
-            }
+            Logger.Log("SpellChecker: COM factory OK");
         }
         catch (Exception ex)
         {
+            Logger.Log($"SpellChecker: COM factory FAILED — {ex.GetType().Name}: {ex.Message}");
             _factory = null;
-            Logger.Log($"SpellChecker: COM factory failed — {ex.GetType().Name}: {ex.Message}");
+        }
+
+        if (_factory != null)
+        {
+            // Log which languages the system supports
+            foreach (var lang in CyrillicLanguages.Concat(EnglishLanguages))
+            {
+                try
+                {
+                    _factory.IsSupported(lang, out bool supported);
+                    Logger.Log($"  lang '{lang}' supported={supported}");
+                }
+                catch (Exception ex) { Logger.Log($"  lang '{lang}' check threw: {ex.Message}"); }
+            }
+
+            // Self-test: "hello" must pass en-US, "привет" must pass ru-RU
+            RunSelfTest();
+        }
+
+        IsAvailable = _factory != null;
+        Logger.Log($"SpellChecker: IsAvailable={IsAvailable}");
+    }
+
+    private void RunSelfTest()
+    {
+        bool enOk  = TestWord("hello",  "en-US");
+        bool ruOk  = TestWord("привет", "ru-RU");
+        Logger.Log($"SpellChecker self-test: 'hello'/en-US={enOk}  'привет'/ru-RU={ruOk}");
+
+        // If neither works, mark unavailable even though factory exists
+        if (!enOk && !ruOk) _factory = null;
+    }
+
+    private bool TestWord(string word, string lang)
+    {
+        try
+        {
+            _factory!.IsSupported(lang, out bool supported);
+            if (!supported) { Logger.Log($"  TestWord: '{lang}' not supported"); return false; }
+
+            _factory.CreateSpellChecker(lang, out var checker);
+            if (checker == null) { Logger.Log($"  TestWord: checker for '{lang}' is null"); return false; }
+
+            int checkHr = checker.Check(word, out var errors);
+            Logger.Log($"  TestWord '{word}'/'{lang}': Check() hr=0x{checkHr:X8} errors={(errors != null ? "ok" : "null")}");
+
+            if (checkHr != 0 || errors == null)
+            {
+                Marshal.ReleaseComObject(checker);
+                return false;
+            }
+
+            int nextHr = errors.Next(out var ptr);
+            Logger.Log($"  TestWord '{word}'/'{lang}': Next() hr=0x{nextHr:X8} (0=error found, 1=no errors=valid)");
+
+            // Release the ISpellingError COM ptr if one was returned
+            if (ptr != IntPtr.Zero)
+            {
+                Marshal.Release(ptr);
+            }
+            Marshal.ReleaseComObject(errors);
+            Marshal.ReleaseComObject(checker);
+
+            return nextHr != 0; // S_FALSE (1) = no spelling errors = word is valid
+        }
+        catch (Exception ex)
+        {
+            Logger.Log($"  TestWord '{word}'/'{lang}' threw: {ex.GetType().Name}: {ex.Message}");
+            return false;
         }
     }
 
@@ -116,11 +176,7 @@ public sealed class SpellChecker : IDisposable
 
     private bool IsValidIn(string word, string[] languages)
     {
-        // When the factory is unavailable we cannot validate — return false so that
-        // the correction pipeline can still run based on character mapping alone.
-        // (Returning true would silently block all corrections.)
         if (_factory == null) return false;
-
         foreach (var lang in languages)
         {
             var checker = GetChecker(lang);
@@ -134,21 +190,31 @@ public sealed class SpellChecker : IDisposable
     {
         try
         {
-            int hr = checker.Check(word, out var errors);
-            if (hr != 0 || errors == null) return false;
+            int checkHr = checker.Check(word, out var errors);
+            Logger.Log($"    Check('{word}') hr=0x{checkHr:X8} errors={(errors != null ? "ok" : "null")}");
+            if (checkHr != 0 || errors == null) return false;
 
-            // Next() returns S_OK (0) if a spelling error was found,
-            // S_FALSE (1) if there are no more errors (i.e. word is correct).
-            int nextHr = errors.Next(out _);
+            int nextHr = errors.Next(out var ptr);
+            Logger.Log($"    Next() hr=0x{nextHr:X8} ptr={ptr} (1=S_FALSE=valid, 0=S_OK=has errors)");
+            if (ptr != IntPtr.Zero) Marshal.Release(ptr);
             Marshal.ReleaseComObject(errors);
-            return nextHr != 0; // S_FALSE → no errors → valid
+
+            return nextHr != 0; // S_FALSE (1) = no errors = valid
         }
-        catch { return false; }
+        catch (Exception ex)
+        {
+            Logger.Log($"    IsWordValid('{word}') threw: {ex.GetType().Name}: {ex.Message}");
+            return false;
+        }
     }
 
     private ISpellChecker? GetChecker(string lang)
     {
-        if (_checkers.TryGetValue(lang, out var existing)) return existing;
+        if (_checkers.TryGetValue(lang, out var existing))
+        {
+            Logger.Log($"  GetChecker('{lang}'): cached, ok={existing != null}");
+            return existing;
+        }
 
         ISpellChecker? checker = null;
         try
@@ -156,19 +222,19 @@ public sealed class SpellChecker : IDisposable
             if (_factory != null)
             {
                 _factory.IsSupported(lang, out bool supported);
+                Logger.Log($"  GetChecker('{lang}'): supported={supported}");
                 if (supported)
                 {
                     _factory.CreateSpellChecker(lang, out checker);
-                    Logger.Log($"SpellChecker: created checker for '{lang}'");
+                    Logger.Log($"  GetChecker('{lang}'): checker={(checker != null ? "ok" : "null")}");
                 }
             }
         }
         catch (Exception ex)
         {
-            Logger.Log($"SpellChecker: CreateSpellChecker('{lang}') failed — {ex.Message}");
+            Logger.Log($"  GetChecker('{lang}') threw: {ex.GetType().Name}: {ex.Message}");
             checker = null;
         }
-
         _checkers[lang] = checker;
         return checker;
     }
