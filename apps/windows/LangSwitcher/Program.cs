@@ -28,6 +28,17 @@ internal static class Program
 
         hook.Install();
 
+        if (!spell.IsAvailable)
+        {
+            MessageBox.Show(
+                "The Windows Spell Checker COM service could not be initialised.\n\n" +
+                "LangSwitcher will still correct words based on character mapping alone " +
+                "(no false-positive guard). Install Russian/Ukrainian language packs in " +
+                "Windows Settings → Time & Language → Language & Region and restart the app.",
+                "LangSwitcher — Spell Checker Unavailable",
+                MessageBoxButtons.OK, MessageBoxIcon.Warning);
+        }
+
         using var tray = new TrayIcon(settings, hook);
 
         Application.Run(); // message loop — no main window
