@@ -397,11 +397,26 @@ public sealed class KeyboardHook : IDisposable
     [DllImport("user32.dll")] private static extern short GetAsyncKeyState(int vKey);
     [DllImport("user32.dll")] private static extern IntPtr GetKeyboardLayout(uint idThread);
 
+    // Returns whichever of two HKLs produces a non-ASCII character for the given VK.
+    // Modern apps (WinUI/UWP Notepad etc.) use TSF for input and don't update the
+    // legacy per-thread HKL, so the foreground thread can report English HKL while
+    // Russian is active. Our own thread's HKL is updated by WM_INPUTLANGCHANGE in
+    // global-layout mode and is therefore more reliable in that scenario.
+    private static IntPtr PickBestHkl(uint vk, IntPtr fgHkl, IntPtr myHkl)
+    {
+        if (fgHkl == myHkl) return fgHkl;
+        uint fg = MapVirtualKeyEx(vk, 2, fgHkl);
+        uint my = MapVirtualKeyEx(vk, 2, myHkl);
+        bool fgNonAscii = fg != 0 && (fg & 0x80000000) == 0 && (fg & 0xFFFF) >= 128;
+        bool myNonAscii = my != 0 && (my & 0x80000000) == 0 && (my & 0xFFFF) >= 128;
+        return (myNonAscii && !fgNonAscii) ? myHkl : fgHkl;
+    }
+
     private static char VkToChar(uint vk, uint scan)
     {
         var  hwnd = GetForegroundWindow();
         uint tid  = GetWindowThreadProcessId(hwnd, out _);
-        var  hkl  = GetKeyboardLayout(tid);
+        var  hkl  = PickBestHkl(vk, GetKeyboardLayout(tid), GetKeyboardLayout(0));
 
         uint code = MapVirtualKeyEx(vk, 2 /* MAPVK_VK_TO_CHAR */, hkl);
         if (code == 0 || (code & 0x80000000) != 0) return '\0';
