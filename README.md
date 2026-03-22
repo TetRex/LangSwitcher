@@ -54,12 +54,4 @@ The primary app — a menu bar utility built with Swift/AppKit.
 > **Work in Progress**
 > A Windows version is under active development. It will bring the same automatic layout correction to Windows users. Stay tuned for releases.
 
-## Requirements
-
-### macOS
-- macOS 13 Ventura or later
-- Accessibility permission (prompted on first launch)
-
-### Windows
-- Windows 10 or later *(coming soon)*
 
