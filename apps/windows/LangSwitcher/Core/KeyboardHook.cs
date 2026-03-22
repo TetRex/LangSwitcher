@@ -22,7 +22,10 @@ public sealed class KeyboardHook : IDisposable
     [DllImport("user32.dll")] private static extern short GetKeyState(int nVirtKey);
     [DllImport("user32.dll")] private static extern IntPtr GetForegroundWindow();
     [DllImport("user32.dll")] private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
-    [DllImport("kernel32.dll")] private static extern uint GetCurrentThreadId();
+    [DllImport("user32.dll")] private static extern uint MapVirtualKeyEx(uint uCode, uint uMapType, IntPtr dwhkl);
+    [DllImport("user32.dll")] private static extern short GetAsyncKeyState(int vKey);
+    [DllImport("user32.dll")] private static extern IntPtr GetKeyboardLayout(uint idThread);
+    [DllImport("user32.dll")] private static extern int GetKeyboardLayoutList(int nBuff, IntPtr[]? lpList);
 
     [StructLayout(LayoutKind.Sequential)]
     private struct KBDLLHOOKSTRUCT
@@ -50,19 +53,19 @@ public sealed class KeyboardHook : IDisposable
     private const uint VK_DELETE = 0x2E;
     private const uint VK_HOME   = 0x24;
     private const uint VK_END    = 0x23;
-    private const uint VK_PRIOR  = 0x21; // Page Up
-    private const uint VK_NEXT   = 0x22; // Page Down
+    private const uint VK_PRIOR  = 0x21;
+    private const uint VK_NEXT   = 0x22;
     private const uint VK_TAB    = 0x09;
 
     // Modifier VKs
     private const uint VK_SHIFT   = 0x10;
     private const uint VK_CONTROL = 0x11;
-    private const uint VK_MENU    = 0x12; // Alt
+    private const uint VK_MENU    = 0x12;
     private const uint VK_LMENU   = 0xA4;
     private const uint VK_RMENU   = 0xA5;
     private const uint VK_LWIN    = 0x5B;
     private const uint VK_RWIN    = 0x5C;
-    private const uint VK_CAPITAL = 0x14; // CapsLock
+    private const uint VK_CAPITAL = 0x14;
 
     private static readonly HashSet<uint> NonCharKeys = new()
     {
@@ -70,11 +73,63 @@ public sealed class KeyboardHook : IDisposable
         VK_DELETE, VK_HOME, VK_END, VK_PRIOR, VK_NEXT,
         VK_SHIFT, VK_CONTROL, VK_MENU, VK_LMENU, VK_RMENU,
         VK_LWIN, VK_RWIN, VK_CAPITAL, VK_TAB,
-        // F1-F24
         0x70,0x71,0x72,0x73,0x74,0x75,0x76,0x77,
         0x78,0x79,0x7A,0x7B,0x7C,0x7D,0x7E,0x7F,
         0x80,0x81,0x82,0x83,0x84,0x85,0x86,0x87,
     };
+
+    // ── TSF language detection ─────────────────────────────────────────────────
+    // On Windows 11, GetKeyboardLayout() no longer reflects the active input
+    // language when modern (TSF-based) layout switching is used. Apps like the
+    // new WinUI Notepad do not update the per-thread HKL at all.
+    // ITfInputProcessorProfiles::GetCurrentLanguage() is the reliable source.
+
+    [ComImport, Guid("1F02B6C5-7842-4EE6-8A0B-9A24183A95CA")]
+    [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    private interface ITfInputProcessorProfiles
+    {
+        // Slots 1-10: Register, Unregister, AddLanguageProfile,
+        // RemoveLanguageProfile, EnumInputProcessorInfo,
+        // GetDefaultLanguageProfile, SetDefaultLanguageProfile,
+        // ActivateLanguageProfile, GetActiveLanguageProfile,
+        // GetLanguageProfileDescription  (never called — vtable placeholders)
+        void _1(); void _2(); void _3(); void _4(); void _5();
+        void _6(); void _7(); void _8(); void _9(); void _10();
+        // Slot 11:
+        [PreserveSig] int GetCurrentLanguage(out ushort langId);
+    }
+
+    private static readonly Guid ClsidTfInputProcessorProfiles = new("33C53A50-F456-4884-B049-85FD643ECFED");
+    private ITfInputProcessorProfiles? _tsfProfiles;
+    private IntPtr[]? _cachedHkls; // installed keyboard layouts — rarely changes
+
+    /// Returns the HKL for the currently active TSF input language,
+    /// or IntPtr.Zero if TSF is unavailable or the HKL cannot be found.
+    private IntPtr GetHklViaTsf()
+    {
+        try
+        {
+            if (_tsfProfiles == null)
+                _tsfProfiles = (ITfInputProcessorProfiles)Activator.CreateInstance(
+                    Type.GetTypeFromCLSID(ClsidTfInputProcessorProfiles, throwOnError: true)!)!;
+
+            _tsfProfiles.GetCurrentLanguage(out ushort langId);
+            if (langId == 0) return IntPtr.Zero;
+
+            if (_cachedHkls == null)
+            {
+                int n = GetKeyboardLayoutList(0, null);
+                _cachedHkls = new IntPtr[n];
+                GetKeyboardLayoutList(n, _cachedHkls);
+            }
+
+            foreach (var h in _cachedHkls)
+                if ((h.ToInt64() & 0xFFFF) == langId) return h;
+
+            return IntPtr.Zero;
+        }
+        catch { return IntPtr.Zero; }
+    }
 
     // ── State ─────────────────────────────────────────────────────────────────
 
@@ -82,21 +137,16 @@ public sealed class KeyboardHook : IDisposable
     private readonly LayoutConverter _converter;
     private bool SpellCheckAvailable => _converter.SpellCheckAvailable;
     private readonly WordBuffer _buffer = new();
-    private readonly LowLevelKeyboardProc _proc; // keep alive to prevent GC
+    private readonly LowLevelKeyboardProc _proc;
     private IntPtr _hook = IntPtr.Zero;
-    // Force-convert double-tap tracking
     private DateTime _lastForceConvertTime = DateTime.MinValue;
     private const double DoubleTapIntervalMs = 400;
 
-    // Async dispatch: spell-checker COM calls (RPC_E_WRONG_THREAD) and SendInput
-    // must NOT run inside the WH_KEYBOARD_LL callback. The timer fires on the
-    // clean message-loop context where both work correctly.
     private Action? _pendingAction;
     private readonly System.Windows.Forms.Timer _correctionTimer;
 
     // ── Events ────────────────────────────────────────────────────────────────
 
-    /// Fired when a correction is made. Args: (original, corrected).
     public event Action<string, string>? CorrectionMade;
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────
@@ -105,7 +155,7 @@ public sealed class KeyboardHook : IDisposable
     {
         _settings  = settings;
         _converter = converter;
-        _proc = HookCallback; // keep delegate alive
+        _proc = HookCallback;
 
         _correctionTimer = new System.Windows.Forms.Timer { Interval = 1 };
         _correctionTimer.Tick += OnCorrectionTimer;
@@ -131,6 +181,11 @@ public sealed class KeyboardHook : IDisposable
     {
         Uninstall();
         _correctionTimer.Dispose();
+        if (_tsfProfiles != null)
+        {
+            Marshal.ReleaseComObject(_tsfProfiles);
+            _tsfProfiles = null;
+        }
     }
 
     // ── Hook callback ─────────────────────────────────────────────────────────
@@ -146,7 +201,6 @@ public sealed class KeyboardHook : IDisposable
 
         var kbd = Marshal.PtrToStructure<KBDLLHOOKSTRUCT>(lParam);
 
-        // Ignore events we ourselves injected (sentinel in dwExtraInfo).
         if (kbd.dwExtraInfo == TextReplacer.OwnEventSentinel)
             return CallNextHookEx(_hook, nCode, wParam, lParam);
 
@@ -157,7 +211,6 @@ public sealed class KeyboardHook : IDisposable
         if (isForceConvertKey)
         {
             bool hasModifierConfig = _settings.ForceConvertModifiers != 0;
-
             if (hasModifierConfig)
             {
                 if (CurrentModifiers() == _settings.ForceConvertModifiers)
@@ -183,7 +236,7 @@ public sealed class KeyboardHook : IDisposable
             }
         }
 
-        // ── Skip command combos (Ctrl+X, Alt+X, Win+X …) ─────────────────────
+        // ── Skip command combos ───────────────────────────────────────────────
         uint mods = CurrentModifiers();
         uint commandMods = mods & ~(uint)ModifierFlags.Shift;
         if (commandMods != 0)
@@ -212,9 +265,6 @@ public sealed class KeyboardHook : IDisposable
             if (string.IsNullOrEmpty(word))
                 return CallNextHookEx(_hook, nCode, wParam, lParam);
 
-            // Suppress the key and hand off to the timer. Spell-checker COM calls
-            // return RPC_E_WRONG_THREAD from inside a WH_KEYBOARD_LL callback;
-            // SendInput also requires being outside the callback to work reliably.
             var capturedWord     = word;
             var capturedTrailing = trailing;
             Schedule(() => ProcessWord(capturedWord, capturedTrailing));
@@ -253,11 +303,11 @@ public sealed class KeyboardHook : IDisposable
         action?.Invoke();
     }
 
-    // ── Word processing (runs from timer, safe for COM + SendInput) ───────────
+    // ── Word processing ───────────────────────────────────────────────────────
 
     private void ProcessWord(string word, char trailing)
     {
-        // 1. Text shortcut expansion
+        // 1. Text shortcut
         var expansion = FindShortcutExpansion(word);
         if (expansion != null)
         {
@@ -300,12 +350,11 @@ public sealed class KeyboardHook : IDisposable
             }
         }
 
-        // No correction — re-inject the suppressed trailing character.
         Log($"  no correction, re-injecting trailing");
         TextReplacer.Replace(0, string.Empty, trailing);
     }
 
-    // ── Force convert (mid-word) ──────────────────────────────────────────────
+    // ── Force convert ─────────────────────────────────────────────────────────
 
     private void TryForceConvert()
     {
@@ -329,9 +378,7 @@ public sealed class KeyboardHook : IDisposable
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     private static readonly HashSet<char> EnglishVowels = new("aeiouAEIOU");
-
-    private static bool HasEnglishVowel(string word) =>
-        word.Any(c => EnglishVowels.Contains(c));
+    private static bool HasEnglishVowel(string word) => word.Any(c => EnglishVowels.Contains(c));
 
     // ── Correction ────────────────────────────────────────────────────────────
 
@@ -368,7 +415,7 @@ public sealed class KeyboardHook : IDisposable
         return null;
     }
 
-    // ── Modifier helpers ──────────────────────────────────────────────────────
+    // ── Modifiers ─────────────────────────────────────────────────────────────
 
     [Flags]
     private enum ModifierFlags : uint
@@ -393,30 +440,21 @@ public sealed class KeyboardHook : IDisposable
 
     // ── VK to char ────────────────────────────────────────────────────────────
 
-    [DllImport("user32.dll")] private static extern uint MapVirtualKeyEx(uint uCode, uint uMapType, IntPtr dwhkl);
-    [DllImport("user32.dll")] private static extern short GetAsyncKeyState(int vKey);
-    [DllImport("user32.dll")] private static extern IntPtr GetKeyboardLayout(uint idThread);
-
-    // Returns whichever of two HKLs produces a non-ASCII character for the given VK.
-    // Modern apps (WinUI/UWP Notepad etc.) use TSF for input and don't update the
-    // legacy per-thread HKL, so the foreground thread can report English HKL while
-    // Russian is active. Our own thread's HKL is updated by WM_INPUTLANGCHANGE in
-    // global-layout mode and is therefore more reliable in that scenario.
-    private static IntPtr PickBestHkl(uint vk, IntPtr fgHkl, IntPtr myHkl)
+    private char VkToChar(uint vk, uint scan)
     {
-        if (fgHkl == myHkl) return fgHkl;
-        uint fg = MapVirtualKeyEx(vk, 2, fgHkl);
-        uint my = MapVirtualKeyEx(vk, 2, myHkl);
-        bool fgNonAscii = fg != 0 && (fg & 0x80000000) == 0 && (fg & 0xFFFF) >= 128;
-        bool myNonAscii = my != 0 && (my & 0x80000000) == 0 && (my & 0xFFFF) >= 128;
-        return (myNonAscii && !fgNonAscii) ? myHkl : fgHkl;
-    }
+        // TSF is the authoritative source on Windows 11 where legacy
+        // GetKeyboardLayout() no longer reflects the active input language.
+        var hkl = GetHklViaTsf();
 
-    private static char VkToChar(uint vk, uint scan)
-    {
-        var  hwnd = GetForegroundWindow();
-        uint tid  = GetWindowThreadProcessId(hwnd, out _);
-        var  hkl  = PickBestHkl(vk, GetKeyboardLayout(tid), GetKeyboardLayout(0));
+        // Fall back to legacy HKL if TSF could not provide one.
+        if (hkl == IntPtr.Zero)
+        {
+            var hwnd = GetForegroundWindow();
+            uint tid = GetWindowThreadProcessId(hwnd, out _);
+            hkl = GetKeyboardLayout(tid);
+            if (hkl == IntPtr.Zero)
+                hkl = GetKeyboardLayout(0);
+        }
 
         uint code = MapVirtualKeyEx(vk, 2 /* MAPVK_VK_TO_CHAR */, hkl);
         if (code == 0 || (code & 0x80000000) != 0) return '\0';
