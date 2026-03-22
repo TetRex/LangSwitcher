@@ -22,7 +22,6 @@ public sealed class KeyboardHook : IDisposable
     [DllImport("user32.dll")] private static extern short GetKeyState(int nVirtKey);
     [DllImport("user32.dll")] private static extern IntPtr GetForegroundWindow();
     [DllImport("user32.dll")] private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
-    [DllImport("user32.dll")] private static extern bool AttachThreadInput(uint idAttach, uint idAttachTo, bool fAttach);
     [DllImport("kernel32.dll")] private static extern uint GetCurrentThreadId();
 
     [StructLayout(LayoutKind.Sequential)]
@@ -89,10 +88,10 @@ public sealed class KeyboardHook : IDisposable
     private DateTime _lastForceConvertTime = DateTime.MinValue;
     private const double DoubleTapIntervalMs = 400;
 
-    // Async correction dispatch — SendInput must run AFTER the hook callback returns.
-    private record PendingCorrection(string Original, string Replacement, char? Trailing,
-                                     bool SwitchLayout, bool CyrillicToEn);
-    private PendingCorrection? _pending;
+    // Async dispatch: spell-checker COM calls (RPC_E_WRONG_THREAD) and SendInput
+    // must NOT run inside the WH_KEYBOARD_LL callback. The timer fires on the
+    // clean message-loop context where both work correctly.
+    private Action? _pendingAction;
     private readonly System.Windows.Forms.Timer _correctionTimer;
 
     // ── Events ────────────────────────────────────────────────────────────────
@@ -161,17 +160,14 @@ public sealed class KeyboardHook : IDisposable
 
             if (hasModifierConfig)
             {
-                // Modifier-based: check that required modifiers are held
                 if (CurrentModifiers() == _settings.ForceConvertModifiers)
                 {
                     TryForceConvert();
-                    // Suppress key
                     return (IntPtr)1;
                 }
             }
             else
             {
-                // Double-tap mode (no modifiers required)
                 if (CurrentModifiers() == 0)
                 {
                     var now = DateTime.UtcNow;
@@ -182,7 +178,6 @@ public sealed class KeyboardHook : IDisposable
                         return (IntPtr)1;
                     }
                     _lastForceConvertTime = now;
-                    // Let the first tap through
                     return CallNextHookEx(_hook, nCode, wParam, lParam);
                 }
             }
@@ -190,11 +185,10 @@ public sealed class KeyboardHook : IDisposable
 
         // ── Skip command combos (Ctrl+X, Alt+X, Win+X …) ─────────────────────
         uint mods = CurrentModifiers();
-        // Shift alone is fine (produces uppercase) — mask it out for this check
         uint commandMods = mods & ~(uint)ModifierFlags.Shift;
         if (commandMods != 0)
         {
-            _buffer.Clear(); // cursor state may change
+            _buffer.Clear();
             return CallNextHookEx(_hook, nCode, wParam, lParam);
         }
 
@@ -213,61 +207,18 @@ public sealed class KeyboardHook : IDisposable
 
             Log($"WORD: '{word}' (len={word.Length})");
 
+            char trailing = vk == VK_RETURN ? '\n' : ' ';
+
             if (string.IsNullOrEmpty(word))
                 return CallNextHookEx(_hook, nCode, wParam, lParam);
 
-            char trailing = vk == VK_RETURN ? '\n' : ' ';
-
-            // 1. Text shortcut expansion
-            var expansion = FindShortcutExpansion(word);
-            if (expansion != null)
-            {
-                Log($"  → shortcut expansion: '{expansion}'");
-                ScheduleCorrection(word, expansion, trailing, switchLayout: false);
-                return (IntPtr)1;
-            }
-
-            // 2. Cyrillic → English
-            // Guard: skip if the word is already a valid Cyrillic word (don't fix what's right).
-            // When spell check is unavailable, only skip if the word is pure ASCII (not Cyrillic at all).
-            bool validCyrillic = SpellCheckAvailable
-                ? _converter.IsValidCyrillicWordConsideringLatinOverlap(word)
-                : word.All(c => c < 128); // ASCII-only → definitely not a Cyrillic mistype
-            Log($"  validCyrillic={validCyrillic} (spellOk={SpellCheckAvailable})");
-            if (!validCyrillic)
-            {
-                var english = LayoutConverter.ConvertIncludingLatin(word);
-                // When spell check works, validate the English result.
-                // When unavailable, accept any clean conversion (all chars mapped).
-                bool validEnglish = english != null &&
-                    (SpellCheckAvailable ? _converter.IsValidEnglishWord(english) : true);
-                Log($"  cyrToEn='{english}' validEnglish={validEnglish}");
-                if (english != null && validEnglish)
-                {
-                    ScheduleCorrection(word, english, trailing, switchLayout: true, cyrillicToEn: true);
-                    return (IntPtr)1;
-                }
-            }
-
-            // 3. English → Cyrillic
-            // Guard: skip if the word is already valid English.
-            // When spell check is unavailable, skip only obvious English words (contains vowels).
-            bool validEnWord = SpellCheckAvailable
-                ? _converter.IsValidEnglishWord(word)
-                : HasEnglishVowel(word); // real English words almost always have vowels
-            Log($"  validEnglish(original)={validEnWord} (spellOk={SpellCheckAvailable})");
-            if (!validEnWord)
-            {
-                var cyrillic = _converter.ConvertEnglishMistypeToValidCyrillic(word);
-                Log($"  enToCyr='{cyrillic}'");
-                if (cyrillic != null)
-                {
-                    ScheduleCorrection(word, cyrillic, trailing, switchLayout: true, cyrillicToEn: false);
-                    return (IntPtr)1;
-                }
-            }
-
-            return CallNextHookEx(_hook, nCode, wParam, lParam);
+            // Suppress the key and hand off to the timer. Spell-checker COM calls
+            // return RPC_E_WRONG_THREAD from inside a WH_KEYBOARD_LL callback;
+            // SendInput also requires being outside the callback to work reliably.
+            var capturedWord     = word;
+            var capturedTrailing = trailing;
+            Schedule(() => ProcessWord(capturedWord, capturedTrailing));
+            return (IntPtr)1;
         }
 
         // ── Navigation / non-character keys ───────────────────────────────────
@@ -285,34 +236,11 @@ public sealed class KeyboardHook : IDisposable
         return CallNextHookEx(_hook, nCode, wParam, lParam);
     }
 
-    // ── Force convert (mid-word) ──────────────────────────────────────────────
+    // ── Async dispatch ────────────────────────────────────────────────────────
 
-    private void TryForceConvert()
+    private void Schedule(Action action)
     {
-        var word = _buffer.Current;
-        _buffer.Clear();
-
-        var english = LayoutConverter.ConvertIncludingLatin(word);
-        if (english != null)
-            ScheduleCorrection(word, english, trailing: null, switchLayout: true, cyrillicToEn: true);
-    }
-
-    // ── Helpers ───────────────────────────────────────────────────────────────
-
-    private static readonly HashSet<char> EnglishVowels = new("aeiouAEIOU");
-
-    /// Heuristic: real English words almost always contain at least one vowel.
-    /// Used as a cheap "is this plausibly English?" guard when the spell checker
-    /// is unavailable, to avoid correcting things like "ghbdtn" (no vowels).
-    private static bool HasEnglishVowel(string word) =>
-        word.Any(c => EnglishVowels.Contains(c));
-
-    // ── Async correction dispatch ─────────────────────────────────────────────
-
-    private void ScheduleCorrection(string original, string replacement, char? trailing,
-                                    bool switchLayout, bool cyrillicToEn = false)
-    {
-        _pending = new PendingCorrection(original, replacement, trailing, switchLayout, cyrillicToEn);
+        _pendingAction = action;
         _correctionTimer.Stop();
         _correctionTimer.Start();
     }
@@ -320,21 +248,99 @@ public sealed class KeyboardHook : IDisposable
     private void OnCorrectionTimer(object? sender, EventArgs e)
     {
         _correctionTimer.Stop();
-        if (_pending is { } p)
-        {
-            _pending = null;
-            Correct(p.Original, p.Replacement, p.Trailing, p.SwitchLayout, p.CyrillicToEn);
-        }
+        var action = _pendingAction;
+        _pendingAction = null;
+        action?.Invoke();
     }
+
+    // ── Word processing (runs from timer, safe for COM + SendInput) ───────────
+
+    private void ProcessWord(string word, char trailing)
+    {
+        // 1. Text shortcut expansion
+        var expansion = FindShortcutExpansion(word);
+        if (expansion != null)
+        {
+            Log($"  shortcut expansion: '{expansion}'");
+            Correct(word, expansion, trailing, switchLayout: false);
+            return;
+        }
+
+        // 2. Cyrillic to English
+        bool validCyrillic = SpellCheckAvailable
+            ? _converter.IsValidCyrillicWordConsideringLatinOverlap(word)
+            : word.All(c => c < 128);
+        Log($"  validCyrillic={validCyrillic} (spellOk={SpellCheckAvailable})");
+        if (!validCyrillic)
+        {
+            var english = LayoutConverter.ConvertIncludingLatin(word);
+            bool validEnglish = english != null &&
+                (SpellCheckAvailable ? _converter.IsValidEnglishWord(english) : true);
+            Log($"  cyrToEn='{english}' validEnglish={validEnglish}");
+            if (english != null && validEnglish)
+            {
+                Correct(word, english, trailing, switchLayout: true, cyrillicToEn: true);
+                return;
+            }
+        }
+
+        // 3. English to Cyrillic
+        bool validEnWord = SpellCheckAvailable
+            ? _converter.IsValidEnglishWord(word)
+            : HasEnglishVowel(word);
+        Log($"  validEnglish(original)={validEnWord} (spellOk={SpellCheckAvailable})");
+        if (!validEnWord)
+        {
+            var cyrillic = _converter.ConvertEnglishMistypeToValidCyrillic(word);
+            Log($"  enToCyr='{cyrillic}'");
+            if (cyrillic != null)
+            {
+                Correct(word, cyrillic, trailing, switchLayout: true, cyrillicToEn: false);
+                return;
+            }
+        }
+
+        // No correction — re-inject the suppressed trailing character.
+        Log($"  no correction, re-injecting trailing");
+        TextReplacer.Replace(0, string.Empty, trailing);
+    }
+
+    // ── Force convert (mid-word) ──────────────────────────────────────────────
+
+    private void TryForceConvert()
+    {
+        var word    = _buffer.Current;
+        _buffer.Clear();
+        var english = LayoutConverter.ConvertIncludingLatin(word);
+        if (english == null) return;
+
+        var capturedWord    = word;
+        var capturedEnglish = english;
+        Schedule(() =>
+        {
+            TextReplacer.Replace(capturedWord.Length, capturedEnglish, null);
+            if (_settings.AutoSwitchLayout) LayoutSwitcher.SwitchToEnglish();
+            _settings.CorrectionCount++;
+            _settings.Save();
+            CorrectionMade?.Invoke(capturedWord, capturedEnglish);
+        });
+    }
+
+    // ── Helpers ───────────────────────────────────────────────────────────────
+
+    private static readonly HashSet<char> EnglishVowels = new("aeiouAEIOU");
+
+    private static bool HasEnglishVowel(string word) =>
+        word.Any(c => EnglishVowels.Contains(c));
 
     // ── Correction ────────────────────────────────────────────────────────────
 
     private void Correct(string original, string replacement, char? trailing,
                          bool switchLayout, bool cyrillicToEn = false)
     {
-        Log($"  CORRECTING '{original}' → '{replacement}' trailing='{(trailing.HasValue ? trailing.Value : '∅')}'");
+        Log($"  CORRECTING '{original}' -> '{replacement}'");
         uint sent = TextReplacer.Replace(original.Length, replacement, trailing);
-        int expectedEvents = original.Length * 2 + (replacement.Length + (trailing.HasValue ? 1 : 0)) * 2;
+        int  expectedEvents = original.Length * 2 + (replacement.Length + (trailing.HasValue ? 1 : 0)) * 2;
         Log($"  SendInput sent={sent} expected={expectedEvents}");
 
         if (switchLayout && _settings.AutoSwitchLayout)
@@ -377,18 +383,16 @@ public sealed class KeyboardHook : IDisposable
     private static uint CurrentModifiers()
     {
         uint mods = 0;
-        if ((GetKeyState(0x10) & 0x8000) != 0) mods |= (uint)ModifierFlags.Shift;   // VK_SHIFT
-        if ((GetKeyState(0x11) & 0x8000) != 0) mods |= (uint)ModifierFlags.Control; // VK_CONTROL
-        if ((GetKeyState(0x12) & 0x8000) != 0) mods |= (uint)ModifierFlags.Alt;     // VK_MENU
+        if ((GetKeyState(0x10) & 0x8000) != 0) mods |= (uint)ModifierFlags.Shift;
+        if ((GetKeyState(0x11) & 0x8000) != 0) mods |= (uint)ModifierFlags.Control;
+        if ((GetKeyState(0x12) & 0x8000) != 0) mods |= (uint)ModifierFlags.Alt;
         if ((GetKeyState(0x5B) & 0x8000) != 0 ||
             (GetKeyState(0x5C) & 0x8000) != 0) mods |= (uint)ModifierFlags.Win;
         return mods;
     }
 
-    // ── VK → char ─────────────────────────────────────────────────────────────
+    // ── VK to char ────────────────────────────────────────────────────────────
 
-    // MapVirtualKeyEx with MAPVK_VK_TO_CHAR (2) returns the base Unicode character
-    // for the key on the given layout — no keyboard state required, safe in any context.
     [DllImport("user32.dll")] private static extern uint MapVirtualKeyEx(uint uCode, uint uMapType, IntPtr dwhkl);
     [DllImport("user32.dll")] private static extern short GetAsyncKeyState(int vKey);
     [DllImport("user32.dll")] private static extern IntPtr GetKeyboardLayout(uint idThread);
@@ -399,22 +403,18 @@ public sealed class KeyboardHook : IDisposable
         uint tid  = GetWindowThreadProcessId(hwnd, out _);
         var  hkl  = GetKeyboardLayout(tid);
 
-        // High bit of the return value = dead key: skip those.
         uint code = MapVirtualKeyEx(vk, 2 /* MAPVK_VK_TO_CHAR */, hkl);
         if (code == 0 || (code & 0x80000000) != 0) return '\0';
 
         char ch = (char)(code & 0xFFFF);
 
-        // Apply Shift / CapsLock for correct case.
-        // GetAsyncKeyState is reliable even inside a low-level hook callback.
-        bool shift    = (GetAsyncKeyState(0x10) & 0x8000) != 0; // VK_SHIFT
-        bool capsLock = (GetKeyState(0x14) & 0x0001) != 0;       // VK_CAPITAL toggle bit
+        bool shift    = (GetAsyncKeyState(0x10) & 0x8000) != 0;
+        bool capsLock = (GetKeyState(0x14) & 0x0001) != 0;
         bool upper    = shift ^ capsLock;
 
         if (char.IsLetter(ch))
             return upper ? char.ToUpper(ch) : char.ToLower(ch);
 
-        // Shift changes punctuation characters on standard layouts.
         if (upper)
         {
             return ch switch

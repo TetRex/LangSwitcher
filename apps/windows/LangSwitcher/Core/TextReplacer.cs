@@ -15,7 +15,7 @@ public static class TextReplacer
         public INPUTUNION u;
     }
 
-    [StructLayout(LayoutKind.Explicit)]
+    [StructLayout(LayoutKind.Explicit, Size = 32)] // must match MOUSEINPUT size on 64-bit
     private struct INPUTUNION
     {
         [FieldOffset(0)] public KEYBDINPUT ki;
