@@ -1,6 +1,7 @@
 using System.Runtime.InteropServices;
 using LangSwitcher.Helpers;
 using LangSwitcher.Models;
+using static LangSwitcher.Helpers.Logger;
 
 namespace LangSwitcher.Core;
 
@@ -196,22 +197,31 @@ public sealed class KeyboardHook : IDisposable
             var word = _buffer.Current;
             _buffer.Clear();
 
+            Log($"WORD: '{word}' (len={word.Length})");
+
+            if (string.IsNullOrEmpty(word))
+                return CallNextHookEx(_hook, nCode, wParam, lParam);
+
             char trailing = vk == VK_RETURN ? '\n' : ' ';
 
             // 1. Text shortcut expansion
             var expansion = FindShortcutExpansion(word);
             if (expansion != null)
             {
+                Log($"  → shortcut expansion: '{expansion}'");
                 Correct(word, expansion, trailing, switchLayout: false);
-                return (IntPtr)1; // suppress original space/enter — we injected it
+                return (IntPtr)1;
             }
 
             // 2. Cyrillic → English
-            if (!_converter.IsValidCyrillicWordConsideringLatinOverlap(word))
+            bool validCyrillic = _converter.IsValidCyrillicWordConsideringLatinOverlap(word);
+            Log($"  validCyrillic={validCyrillic}");
+            if (!validCyrillic)
             {
                 var english = LayoutConverter.ConvertIncludingLatin(word);
-                if (english != null &&
-                    (_converter.IsValidEnglishWord(english)))
+                bool validEnglish = english != null && _converter.IsValidEnglishWord(english);
+                Log($"  cyrToEn='{english}' validEnglish={validEnglish}");
+                if (english != null && validEnglish)
                 {
                     Correct(word, english, trailing, switchLayout: true, cyrillicToEn: true);
                     return (IntPtr)1;
@@ -219,9 +229,12 @@ public sealed class KeyboardHook : IDisposable
             }
 
             // 3. English → Cyrillic
-            if (!_converter.IsValidEnglishWord(word))
+            bool validEnWord = _converter.IsValidEnglishWord(word);
+            Log($"  validEnglish(original)={validEnWord}");
+            if (!validEnWord)
             {
                 var cyrillic = _converter.ConvertEnglishMistypeToValidCyrillic(word);
+                Log($"  enToCyr='{cyrillic}'");
                 if (cyrillic != null)
                 {
                     Correct(word, cyrillic, trailing, switchLayout: true, cyrillicToEn: false);
@@ -326,21 +339,27 @@ public sealed class KeyboardHook : IDisposable
     // ── VK → char ─────────────────────────────────────────────────────────────
 
     [DllImport("user32.dll")] private static extern int ToUnicodeEx(uint wVirtKey, uint wScanCode, byte[] lpKeyState, [Out, MarshalAs(UnmanagedType.LPWStr)] System.Text.StringBuilder pwszBuff, int cchBuff, uint wFlags, IntPtr dwhkl);
+    [DllImport("user32.dll")] private static extern bool GetKeyboardState(byte[] lpKeyState);
     [DllImport("user32.dll")] private static extern IntPtr GetKeyboardLayout(uint idThread);
 
     private static char VkToChar(uint vk, uint scan)
     {
+        // GetKeyboardState gives the full modifier state (Shift, CapsLock, AltGr, …)
+        // which is required for correct ToUnicodeEx results on all layouts.
         var keyState = new byte[256];
-        // Capture shift state for uppercase
-        keyState[0x10] = (byte)((GetKeyState(0x10) & 0x8000) != 0 ? 0x80 : 0);
-        keyState[0x14] = (byte)((GetKeyState(0x14) & 0x0001) != 0 ? 0x01 : 0); // CapsLock toggle
+        if (!GetKeyboardState(keyState)) return '\0';
 
-        var hwnd   = GetForegroundWindow();
-        uint tid   = GetWindowThreadProcessId(hwnd, out _);
-        var  hkl   = GetKeyboardLayout(tid);
-        var  sb    = new System.Text.StringBuilder(8);
-        int  result = ToUnicodeEx(vk, scan, keyState, sb, sb.Capacity, 0, hkl);
-        if (result == 1) return sb[0];
+        var  hwnd   = GetForegroundWindow();
+        uint tid    = GetWindowThreadProcessId(hwnd, out _);
+        var  hkl    = GetKeyboardLayout(tid);
+        var  sb     = new System.Text.StringBuilder(8);
+
+        // wFlags = 4 prevents ToUnicodeEx from modifying the dead-key state in the driver,
+        // which would corrupt typing on layouts that use dead keys (e.g. French, German).
+        int result = ToUnicodeEx(vk, scan, keyState, sb, sb.Capacity, 4, hkl);
+
+        // result > 0: characters written; result < 0: dead key (ignore); 0: no translation
+        if (result > 0) return sb[0];
         return '\0';
     }
 }
