@@ -41,17 +41,3 @@ LangSwitcher installs a global `CGEventTap` at the session level. As you type, i
 - **English → Cyrillic** — QWERTY characters are mapped to the matching Cyrillic word (Russian or Ukrainian)
 
 Only genuine mistakes are corrected — valid words in the current script are left untouched.
-
-## Platform Support
-
-### macOS
-
-The primary app — a menu bar utility built with Swift/AppKit.
-
-### Windows
-
-> [!NOTE]
-> **Work in Progress**
-> A Windows version is under active development. It will bring the same automatic layout correction to Windows users. Stay tuned for releases.
-
-
