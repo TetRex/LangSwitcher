@@ -5,7 +5,7 @@
 <h1 align="center">LangSwitcher</h1>
 
 <p align="center">
-  A lightweight app that automatically fixes keyboard layout mistakes between English and Cyrillic — available for macOS and Windows.
+  A lightweight app that automatically fixes keyboard layout mistakes between English and Cyrillic — available for macOS.
 </p>
 
 ---
