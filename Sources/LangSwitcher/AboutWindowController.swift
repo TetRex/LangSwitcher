@@ -4,10 +4,7 @@ import AppKit
 @MainActor
 final class AboutWindowController: NSWindowController {
 
-    private let correctionCount: Int
-
-    init(correctionCount: Int = 0) {
-        self.correctionCount = correctionCount
+    init() {
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 340, height: 500),
             styleMask: [.titled, .closable, .fullSizeContentView],
@@ -55,7 +52,7 @@ final class AboutWindowController: NSWindowController {
         contentView.addSubview(nameLabel)
 
         // Version badge
-        let versionBadge = makeVersionBadge("Version 1.0.0")
+        let versionBadge = makeVersionBadge("Version 0.4.0")
         contentView.addSubview(versionBadge)
 
         // Separator
@@ -67,6 +64,9 @@ final class AboutWindowController: NSWindowController {
             ("arrow.2.squarepath",
              "Cyrillic ⇄ English",
              "Auto-corrects text typed on the wrong Cyrillic or QWERTY layout when you press Space or Enter."),
+            ("globe.asia.australia.fill",
+             "Chinese → English",
+             "Detects English words typed while a Chinese Pinyin IME is active and switches to the English layout."),
             ("bolt.fill",
              "Force Convert Shortcut",
              "Press your shortcut mid-word to instantly convert without waiting for Space or Enter."),
@@ -84,22 +84,6 @@ final class AboutWindowController: NSWindowController {
 
         let sep2 = makeSeparator()
         contentView.addSubview(sep2)
-
-        // Correction count stat
-        let countLabel = NSTextField(labelWithString: "Corrections made: \(correctionCount)")
-        countLabel.font = .monospacedSystemFont(ofSize: 11, weight: .regular)
-        countLabel.textColor = NSColor(white: 0.45, alpha: 1)
-        countLabel.alignment = .center
-        countLabel.translatesAutoresizingMaskIntoConstraints = false
-        contentView.addSubview(countLabel)
-
-        let githubButton = NSButton(title: "GitHub TetRex", target: self, action: #selector(openGitHub))
-        githubButton.bezelStyle = .inline
-        githubButton.isBordered = false
-        githubButton.font = .systemFont(ofSize: 11)
-        githubButton.contentTintColor = NSColor.controlAccentColor
-        githubButton.translatesAutoresizingMaskIntoConstraints = false
-        contentView.addSubview(githubButton)
 
         let copyright = NSTextField(labelWithString: "© 2025 LangSwitcher")
         copyright.font = .systemFont(ofSize: 10)
@@ -145,24 +129,12 @@ final class AboutWindowController: NSWindowController {
             sep2.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -22),
             sep2.heightAnchor.constraint(equalToConstant: 1),
 
-            countLabel.topAnchor.constraint(equalTo: sep2.bottomAnchor, constant: 10),
-            countLabel.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
-
-            githubButton.topAnchor.constraint(equalTo: countLabel.bottomAnchor, constant: 6),
-            githubButton.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
-
-            copyright.topAnchor.constraint(equalTo: githubButton.bottomAnchor, constant: 2),
+            copyright.topAnchor.constraint(equalTo: sep2.bottomAnchor, constant: 12),
             copyright.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
             copyright.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -16),
         ]
 
         NSLayoutConstraint.activate(constraints)
-    }
-
-    // MARK: - Actions
-
-    @objc private func openGitHub() {
-        NSWorkspace.shared.open(URL(string: "https://github.com/TetRex")!)
     }
 
     // MARK: - Helpers

@@ -1,8 +1,8 @@
 import AppKit
 import Carbon.HIToolbox
 
-/// A minimal first-run setup window that lets users pick a correction mode,
-/// configure a shortcut, grant Accessibility access, and start using the app.
+/// A minimal first-run setup window that lets users pick a shortcut,
+/// grant Accessibility access, and start using the app.
 @MainActor
 final class WelcomeWindowController: NSWindowController {
 
@@ -28,7 +28,7 @@ final class WelcomeWindowController: NSWindowController {
         self.currentModifiers = currentModifiers
 
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 360, height: 720),
+            contentRect: NSRect(x: 0, y: 0, width: 360, height: 560),
             styleMask: [.titled, .closable, .fullSizeContentView],
             backing: .buffered,
             defer: false
@@ -49,7 +49,7 @@ final class WelcomeWindowController: NSWindowController {
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError() }
 
-    // MARK: - UI helpers
+    // MARK: - UIs
 
     private static func makeSectionHeader(_ text: String) -> NSTextField {
         let label = NSTextField(labelWithString: text.uppercased())
@@ -67,6 +67,7 @@ final class WelcomeWindowController: NSWindowController {
         return v
     }
 
+    /// Small numbered circle badge for step indicators.
     private static func makeStepBadge(_ number: String) -> NSView {
         let badge = NSView()
         badge.wantsLayer = true
@@ -129,19 +130,18 @@ final class WelcomeWindowController: NSWindowController {
         return container
     }
 
-    // MARK: - Build UI
-
     private func buildUI() {
         guard let contentView = window?.contentView else { return }
 
         contentView.wantsLayer = true
         contentView.layer?.backgroundColor = NSColor.black.cgColor
 
+        // — Titlebar placeholder —
         let titleLabel = NSTextField(labelWithString: "")
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(titleLabel)
 
-        // — Hero —
+        // — Hero: icon + name + subtitle —
         let appIconView = NSImageView()
         appIconView.image = NSImage(named: "AppIconImage")
         appIconView.imageScaling = .scaleProportionallyUpOrDown
@@ -155,25 +155,23 @@ final class WelcomeWindowController: NSWindowController {
         appNameLabel.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(appNameLabel)
 
-        let subtitleLabel = NSTextField(labelWithString: "Auto-corrects Cyrillic keyboard layout mismatches")
+        let subtitleLabel = NSTextField(labelWithString: "Smart keyboard layout switcher for macOS")
         subtitleLabel.font = .systemFont(ofSize: 12)
         subtitleLabel.textColor = NSColor(white: 0.5, alpha: 1)
         subtitleLabel.alignment = .center
-        subtitleLabel.maximumNumberOfLines = 2
-        subtitleLabel.lineBreakMode = .byWordWrapping
         subtitleLabel.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(subtitleLabel)
 
         // — Feature rows —
         let feature1 = Self.makeFeatureRow(
-            symbol: "arrow.2.squarepath",
-            title: "Cyrillic ⇄ English",
-            description: "Auto-detects mistyped words and fixes the layout on Space or Enter"
+            symbol: "wand.and.sparkles",
+            title: "Auto-Convert",
+            description: "Detects mistyped words and fixes the layout automatically on Space or Enter"
         )
         contentView.addSubview(feature1)
 
         let feature2 = Self.makeFeatureRow(
-            symbol: "bolt",
+            symbol: "command",
             title: "Force Convert",
             description: "Press your shortcut mid-word to instantly switch the current word's layout"
         )
@@ -186,7 +184,7 @@ final class WelcomeWindowController: NSWindowController {
         )
         contentView.addSubview(feature3)
 
-        // — Sep 1 —
+        // — Separator 1 —
         let sep1 = Self.makeSeparator()
         contentView.addSubview(sep1)
 
@@ -233,7 +231,7 @@ final class WelcomeWindowController: NSWindowController {
         let click = NSClickGestureRecognizer(target: self, action: #selector(startRecordingShortcut))
         shortcutContainer.addGestureRecognizer(click)
 
-        // — Sep 2 —
+        // — Separator 2 —
         let sep2 = Self.makeSeparator()
         contentView.addSubview(sep2)
 
@@ -270,19 +268,19 @@ final class WelcomeWindowController: NSWindowController {
         grantButton.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(grantButton)
 
-        // — Sep 3 —
+        // — Separator 3 —
         let sep3 = Self.makeSeparator()
         contentView.addSubview(sep3)
 
         // — Start button —
-        let startButton = NSButton(title: "Get Started", target: self, action: #selector(dismissWelcome))
+        let startButton = NSButton(title: "Start", target: self, action: #selector(dismissWelcome))
         startButton.isBordered = false
         startButton.wantsLayer = true
         startButton.layer?.backgroundColor = NSColor.systemBlue.cgColor
         startButton.layer?.cornerRadius = 8
         startButton.layer?.masksToBounds = true
         startButton.attributedTitle = NSAttributedString(
-            string: "Get Started",
+            string: "Start",
             attributes: [
                 .font: NSFont.systemFont(ofSize: 15, weight: .semibold),
                 .foregroundColor: NSColor.white,
@@ -292,13 +290,11 @@ final class WelcomeWindowController: NSWindowController {
         startButton.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(startButton)
 
-        // MARK: Constraints
-
         NSLayoutConstraint.activate([
             titleLabel.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
             titleLabel.centerYAnchor.constraint(equalTo: contentView.topAnchor, constant: 14),
 
-            // Hero
+            // Hero area
             appIconView.topAnchor.constraint(equalTo: contentView.safeAreaLayoutGuide.topAnchor, constant: 22),
             appIconView.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
             appIconView.widthAnchor.constraint(equalToConstant: 80),
@@ -308,29 +304,27 @@ final class WelcomeWindowController: NSWindowController {
             appNameLabel.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
 
             subtitleLabel.topAnchor.constraint(equalTo: appNameLabel.bottomAnchor, constant: 4),
-            subtitleLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 28),
-            subtitleLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -28),
+            subtitleLabel.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
 
             // Feature rows
-            feature1.topAnchor.constraint(equalTo: subtitleLabel.bottomAnchor, constant: 18),
+            feature1.topAnchor.constraint(equalTo: subtitleLabel.bottomAnchor, constant: 20),
             feature1.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 28),
             feature1.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -28),
 
-            feature2.topAnchor.constraint(equalTo: feature1.bottomAnchor, constant: 10),
+            feature2.topAnchor.constraint(equalTo: feature1.bottomAnchor, constant: 12),
             feature2.leadingAnchor.constraint(equalTo: feature1.leadingAnchor),
             feature2.trailingAnchor.constraint(equalTo: feature1.trailingAnchor),
 
-            feature3.topAnchor.constraint(equalTo: feature2.bottomAnchor, constant: 10),
+            feature3.topAnchor.constraint(equalTo: feature2.bottomAnchor, constant: 12),
             feature3.leadingAnchor.constraint(equalTo: feature1.leadingAnchor),
             feature3.trailingAnchor.constraint(equalTo: feature1.trailingAnchor),
 
-            // Sep 1
-            sep1.topAnchor.constraint(equalTo: feature3.bottomAnchor, constant: 18),
+            sep1.topAnchor.constraint(equalTo: feature3.bottomAnchor, constant: 20),
             sep1.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 22),
             sep1.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -22),
             sep1.heightAnchor.constraint(equalToConstant: 1),
 
-            // Step 1 — Shortcut
+            // Step 1 header row
             badge1.topAnchor.constraint(equalTo: sep1.bottomAnchor, constant: 16),
             badge1.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 22),
             badge1.widthAnchor.constraint(equalToConstant: 20),
@@ -339,6 +333,7 @@ final class WelcomeWindowController: NSWindowController {
             shortcutHeader.centerYAnchor.constraint(equalTo: badge1.centerYAnchor),
             shortcutHeader.leadingAnchor.constraint(equalTo: badge1.trailingAnchor, constant: 8),
 
+            // Hint text (left) + shortcut box (right)
             shortcutHintLabel.topAnchor.constraint(equalTo: badge1.bottomAnchor, constant: 10),
             shortcutHintLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 22),
             shortcutHintLabel.trailingAnchor.constraint(equalTo: shortcutContainer.leadingAnchor, constant: -12),
@@ -348,13 +343,12 @@ final class WelcomeWindowController: NSWindowController {
             shortcutContainer.widthAnchor.constraint(equalToConstant: 100),
             shortcutContainer.heightAnchor.constraint(equalToConstant: 34),
 
-            // Sep 2
-            sep2.topAnchor.constraint(equalTo: shortcutHintLabel.bottomAnchor, constant: 16),
+            sep2.topAnchor.constraint(equalTo: shortcutHintLabel.bottomAnchor, constant: 18),
             sep2.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 22),
             sep2.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -22),
             sep2.heightAnchor.constraint(equalToConstant: 1),
 
-            // Step 2 — Accessibility
+            // Step 2 header row
             badge2.topAnchor.constraint(equalTo: sep2.bottomAnchor, constant: 16),
             badge2.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 22),
             badge2.widthAnchor.constraint(equalToConstant: 20),
@@ -372,13 +366,11 @@ final class WelcomeWindowController: NSWindowController {
             grantButton.widthAnchor.constraint(equalToConstant: 120),
             grantButton.heightAnchor.constraint(equalToConstant: 30),
 
-            // Sep 3
-            sep3.topAnchor.constraint(equalTo: grantHelpLabel.bottomAnchor, constant: 16),
+            sep3.topAnchor.constraint(equalTo: grantHelpLabel.bottomAnchor, constant: 18),
             sep3.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 22),
             sep3.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -22),
             sep3.heightAnchor.constraint(equalToConstant: 1),
 
-            // Start button
             startButton.topAnchor.constraint(greaterThanOrEqualTo: sep3.bottomAnchor, constant: 16),
             startButton.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
             startButton.widthAnchor.constraint(equalToConstant: 160),
@@ -386,8 +378,6 @@ final class WelcomeWindowController: NSWindowController {
             startButton.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -20),
         ])
     }
-
-    // MARK: - Shortcut display
 
     private func updateShortcutDisplay() {
         shortcutField.stringValue = SettingsWindowController.displayName(
