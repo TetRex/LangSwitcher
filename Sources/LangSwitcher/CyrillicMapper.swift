@@ -46,13 +46,16 @@ enum CyrillicMapper {
         "E": "Е", "e": "е",
         "H": "Н",
         "K": "К", "k": "к",
-        "M": "М",
+        "M": "М", "m": "м",
         "O": "О", "o": "о",
         "P": "Р", "p": "р",
         "T": "Т",
         "X": "Х", "x": "х",
         "Y": "У", "y": "у",
     ]
+
+    /// Punctuation that can legitimately appear inside Cyrillic words.
+    private static let cyrillicWordSeparators: Set<Character> = ["'", "\u{2019}", "-"]
 
     /// QWERTY letters mapped to possible Cyrillic letters by keyboard position.
     /// Most keys map to one letter. `s`/`S` can be Russian or Ukrainian.
@@ -150,26 +153,52 @@ enum CyrillicMapper {
     /// Returns `true` when the word is valid in any Cyrillic language
     /// according to the macOS spell checker.
     static func isValidCyrillicWord(_ word: String) -> Bool {
-        let checker = NSSpellChecker.shared
-        for lang in cyrillicLanguages {
-            let range = checker.checkSpelling(
-                of: word,
-                startingAt: 0,
-                language: lang,
-                wrap: false,
-                inSpellDocumentWithTag: spellDocumentTag,
-                wordCount: nil
-            )
-            if range.location == NSNotFound {
-                return true
-            }
-        }
-        return false
+        matchingCyrillicLanguage(for: word) != nil
     }
 
     /// Returns the language code (e.g. "uk", "ru") of the first Cyrillic language
     /// in which the word is valid, or `nil` if none match.
     static func cyrillicWordLanguage(_ word: String) -> String? {
+        matchingCyrillicLanguage(for: word)
+    }
+
+    /// Returns `true` if the word is valid in a Cyrillic language,
+    /// also considering Latin lookalike letters inside the word.
+    static func isValidCyrillicWordConsideringLatinOverlap(_ word: String) -> Bool {
+        guard let normalized = normalizedPotentialCyrillicWord(word) else {
+            return false
+        }
+
+        return isValidCyrillicWord(normalized)
+    }
+
+    /// Normalizes Latin lookalikes inside words that otherwise consist of
+    /// Cyrillic letters plus allowed in-word separators.
+    static func normalizedPotentialCyrillicWord(_ word: String) -> String? {
+        guard !word.isEmpty else { return nil }
+
+        var result = ""
+        result.reserveCapacity(word.count)
+        var hasCyrillicLetter = false
+
+        for ch in word {
+            if let mapped = latinToCyrillicLookalike[ch] {
+                result.append(mapped)
+                hasCyrillicLetter = true
+            } else if isCyrillicCharacter(ch) {
+                result.append(ch)
+                hasCyrillicLetter = true
+            } else if cyrillicWordSeparators.contains(ch) {
+                result.append(ch)
+            } else {
+                return nil
+            }
+        }
+
+        return hasCyrillicLetter ? result : nil
+    }
+
+    private static func matchingCyrillicLanguage(for word: String) -> String? {
         let checker = NSSpellChecker.shared
         for lang in cyrillicLanguages {
             let range = checker.checkSpelling(
@@ -185,23 +214,6 @@ enum CyrillicMapper {
             }
         }
         return nil
-    }
-
-    /// Returns `true` if the word is valid in a Cyrillic language,
-    /// also considering Latin lookalike letters inside the word.
-    static func isValidCyrillicWordConsideringLatinOverlap(_ word: String) -> Bool {
-        guard !word.isEmpty else { return false }
-
-        if isCyrillic(word) {
-            return isValidCyrillicWord(word)
-        }
-
-        let normalized = normalizeLatinLookalikesToCyrillic(word)
-        guard isCyrillic(normalized), normalized != word else {
-            return false
-        }
-
-        return isValidCyrillicWord(normalized)
     }
 
     // MARK: - Shell command validation
@@ -258,13 +270,8 @@ enum CyrillicMapper {
         return range.location == NSNotFound
     }
 
-    private static func normalizeLatinLookalikesToCyrillic(_ word: String) -> String {
-        var result = ""
-        result.reserveCapacity(word.count)
-        for ch in word {
-            result.append(latinToCyrillicLookalike[ch] ?? ch)
-        }
-        return result
+    private static func isCyrillicCharacter(_ character: Character) -> Bool {
+        character.unicodeScalars.allSatisfy { cyrillicRange.contains($0.value) }
     }
 
     private static func buildCyrillicCandidates(from word: String) -> [String] {

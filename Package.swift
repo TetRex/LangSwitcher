@@ -22,5 +22,9 @@ let package = Package(
                 ])
             ]
         ),
+        .testTarget(
+            name: "LangSwitcherTests",
+            dependencies: ["LangSwitcher"]
+        ),
     ]
 )
