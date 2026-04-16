@@ -30,13 +30,25 @@ final class KeyboardInterceptor {
     // MARK: - Lifecycle
 
     init() {
-        forceConvertKeyCode = SettingsWindowController.savedKeyCode()
-        forceConvertModifiers = SettingsWindowController.savedModifiers()
+        forceConvertKeyCode = ShortcutConfiguration.savedKeyCode()
+        forceConvertModifiers = ShortcutConfiguration.savedModifiers()
         startEventTap()
     }
 
-    // No deinit needed – this object lives for the entire app lifetime.
-    // Cleanup happens automatically when the process exits.
+    deinit {
+        if let tap = eventTap {
+            CGEvent.tapEnable(tap: tap, enable: false)
+        }
+        if let source = runLoopSource {
+            CFRunLoopRemoveSource(CFRunLoopGetMain(), source, .commonModes)
+        }
+        if let appActivationObserver {
+            NSWorkspace.shared.notificationCenter.removeObserver(appActivationObserver)
+        }
+        if let inputSourceObserver {
+            DistributedNotificationCenter.default().removeObserver(inputSourceObserver)
+        }
+    }
 
     // MARK: - Event tap
 
@@ -128,7 +140,7 @@ final class KeyboardInterceptor {
         }
 
         let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
-        let eventMods = SettingsWindowController.significantModifiers(UInt64(event.flags.rawValue))
+        let eventMods = ShortcutConfiguration.significantModifiers(UInt64(event.flags.rawValue))
 
         // Check for the force‑convert shortcut FIRST (works with modifiers).
         if keyCode == Int64(forceConvertKeyCode) {

@@ -1,5 +1,4 @@
 import AppKit
-import Carbon.HIToolbox
 
 /// A minimal first-run setup window that lets users pick a shortcut,
 /// grant Accessibility access, and start using the app.
@@ -15,8 +14,7 @@ final class WelcomeWindowController: NSWindowController {
     var onShortcutChanged: ((_ keyCode: Int, _ modifiers: UInt64) -> Void)?
 
     private let shortcutField = NSTextField()
-    private var isRecording = false
-    private var localMonitor: Any?
+    private let shortcutRecorder = ShortcutRecorder()
 
     private var currentKeyCode: Int
     private var currentModifiers: UInt64
@@ -380,7 +378,7 @@ final class WelcomeWindowController: NSWindowController {
     }
 
     private func updateShortcutDisplay() {
-        shortcutField.stringValue = SettingsWindowController.displayName(
+        shortcutField.stringValue = ShortcutConfiguration.displayName(
             keyCode: currentKeyCode,
             modifiers: currentModifiers
         )
@@ -389,45 +387,23 @@ final class WelcomeWindowController: NSWindowController {
     // MARK: - Shortcut recording
 
     @objc private func startRecordingShortcut() {
-        isRecording = true
         shortcutField.stringValue = "Press shortcut..."
 
-        if let m = localMonitor {
-            NSEvent.removeMonitor(m)
-            localMonitor = nil
-        }
-
-        localMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            guard let self, self.isRecording else { return event }
-            self.isRecording = false
-
-            if event.keyCode == UInt16(kVK_Escape),
-               event.modifierFlags.intersection(.deviceIndependentFlagsMask).isEmpty {
+        shortcutRecorder.start { [weak self] in
+            guard let self else { return }
+            MainActor.assumeIsolated {
                 self.updateShortcutDisplay()
-                if let m = self.localMonitor {
-                    NSEvent.removeMonitor(m)
-                    self.localMonitor = nil
-                }
-                return nil
             }
+        } onShortcut: { [weak self] keyCode, modifiers in
+            guard let self else { return }
+            MainActor.assumeIsolated {
+                self.currentKeyCode = keyCode
+                self.currentModifiers = modifiers
+                self.updateShortcutDisplay()
 
-            let keyCode = Int(event.keyCode)
-            let mods = SettingsWindowController.significantModifiers(UInt64(event.modifierFlags.rawValue))
-
-            self.currentKeyCode = keyCode
-            self.currentModifiers = mods
-            self.updateShortcutDisplay()
-
-            UserDefaults.standard.set(keyCode, forKey: "ForceConvertKeyCode")
-            UserDefaults.standard.set(Int64(bitPattern: mods), forKey: "ForceConvertModifiers")
-
-            self.onShortcutChanged?(keyCode, mods)
-
-            if let m = self.localMonitor {
-                NSEvent.removeMonitor(m)
-                self.localMonitor = nil
+                ShortcutConfiguration.save(keyCode: keyCode, modifiers: modifiers)
+                self.onShortcutChanged?(keyCode, modifiers)
             }
-            return nil
         }
     }
 

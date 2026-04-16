@@ -11,6 +11,7 @@ let package = Package(
             path: "Sources/LangSwitcher",
             exclude: ["Info.plist"],
             resources: [
+                .process("Assets.xcassets"),
                 .copy("AppIcon.icon")
             ],
             linkerSettings: [

@@ -6,18 +6,12 @@ import Carbon.HIToolbox
 @MainActor
 final class SettingsWindowController: NSWindowController {
 
-    // MARK: - Defaults keys
-
-    private static let shortcutKeyCodeKey   = "ForceConvertKeyCode"
-    private static let shortcutModifiersKey = "ForceConvertModifiers"
-
     // MARK: - UI — force-convert shortcut
 
     private let shortcutField = NSTextField()
     private let instructionLabel = NSTextField(labelWithString: "")
     private let modeLabel = NSTextField(labelWithString: "")
-    private var isRecording = false
-    private var localMonitor: Any?
+    private let shortcutRecorder = ShortcutRecorder()
 
     /// Called when the user picks a new shortcut.
     var onShortcutChanged: ((_ keyCode: Int, _ modifiers: UInt64) -> Void)?
@@ -245,11 +239,11 @@ final class SettingsWindowController: NSWindowController {
     // MARK: - Shortcut field display
 
     private func updateFieldDisplay() {
-        shortcutField.stringValue = Self.displayName(keyCode: currentKeyCode,
-                                                      modifiers: currentModifiers)
+        shortcutField.stringValue = ShortcutConfiguration.displayName(keyCode: currentKeyCode,
+                                                                     modifiers: currentModifiers)
         instructionLabel.stringValue = "Click the field, then press your shortcut."
 
-        let hasModifiers = Self.significantModifiers(currentModifiers) != 0
+        let hasModifiers = ShortcutConfiguration.significantModifiers(currentModifiers) != 0
         modeLabel.stringValue = hasModifiers
             ? "Mode: single press"
             : "Mode: double‑tap"
@@ -258,36 +252,24 @@ final class SettingsWindowController: NSWindowController {
     // MARK: - Shortcut recording
 
     @objc private func startRecording() {
-        isRecording = true
         shortcutField.stringValue = "Press shortcut…"
         instructionLabel.stringValue = "Press Escape to cancel. Hold modifiers + key."
 
-        if let m = localMonitor { NSEvent.removeMonitor(m); localMonitor = nil }
-
-        localMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            guard let self, self.isRecording else { return event }
-            self.isRecording = false
-
-            if event.keyCode == UInt16(kVK_Escape),
-               event.modifierFlags.intersection(.deviceIndependentFlagsMask).isEmpty {
+        shortcutRecorder.start { [weak self] in
+            guard let self else { return }
+            MainActor.assumeIsolated {
                 self.updateFieldDisplay()
-                if let m = self.localMonitor { NSEvent.removeMonitor(m); self.localMonitor = nil }
-                return nil
             }
+        } onShortcut: { [weak self] keyCode, modifiers in
+            guard let self else { return }
+            MainActor.assumeIsolated {
+                self.currentKeyCode = keyCode
+                self.currentModifiers = modifiers
+                self.updateFieldDisplay()
 
-            let keyCode = Int(event.keyCode)
-            let mods = Self.significantModifiers(UInt64(event.modifierFlags.rawValue))
-            self.currentKeyCode = keyCode
-            self.currentModifiers = mods
-            self.updateFieldDisplay()
-
-            UserDefaults.standard.set(keyCode, forKey: Self.shortcutKeyCodeKey)
-            UserDefaults.standard.set(Int64(bitPattern: mods), forKey: Self.shortcutModifiersKey)
-
-            self.onShortcutChanged?(keyCode, mods)
-
-            if let m = self.localMonitor { NSEvent.removeMonitor(m); self.localMonitor = nil }
-            return nil
+                ShortcutConfiguration.save(keyCode: keyCode, modifiers: modifiers)
+                self.onShortcutChanged?(keyCode, modifiers)
+            }
         }
     }
 
@@ -319,45 +301,23 @@ final class SettingsWindowController: NSWindowController {
     // MARK: - Persistence helpers
 
     static func savedKeyCode() -> Int {
-        let val = UserDefaults.standard.integer(forKey: shortcutKeyCodeKey)
-        return val == 0 ? kVK_ANSI_T : val
+        ShortcutConfiguration.savedKeyCode()
     }
 
     static func savedModifiers() -> UInt64 {
-        if let val = UserDefaults.standard.object(forKey: shortcutModifiersKey) as? Int64 {
-            return UInt64(bitPattern: val)
-        }
-        if let val = UserDefaults.standard.object(forKey: shortcutModifiersKey) as? Int {
-            return UInt64(val)
-        }
-        return CGEventFlags.maskAlternate.rawValue   // default: ⌥
+        ShortcutConfiguration.savedModifiers()
     }
 
     // MARK: - Modifier helpers
 
     /// Keeps only ⌘ ⌥ ⌃ ⇧ bits.
     static func significantModifiers(_ raw: UInt64) -> UInt64 {
-        let mask: UInt64 = CGEventFlags.maskCommand.rawValue
-                       | CGEventFlags.maskAlternate.rawValue
-                       | CGEventFlags.maskControl.rawValue
-                       | CGEventFlags.maskShift.rawValue
-        return raw & mask
+        ShortcutConfiguration.significantModifiers(raw)
     }
 
     /// Human‑readable name like "⌥T" or "⌘⇧K" or "Tab (×2)".
     static func displayName(keyCode: Int, modifiers: UInt64) -> String {
-        var parts: [String] = []
-        if modifiers & CGEventFlags.maskControl.rawValue  != 0 { parts.append("⌃") }
-        if modifiers & CGEventFlags.maskAlternate.rawValue != 0 { parts.append("⌥") }
-        if modifiers & CGEventFlags.maskShift.rawValue     != 0 { parts.append("⇧") }
-        if modifiers & CGEventFlags.maskCommand.rawValue   != 0 { parts.append("⌘") }
-
-        let keyName = nameForKeyCode(keyCode)
-
-        if parts.isEmpty {
-            return "\(keyName) (×2)"
-        }
-        return parts.joined() + keyName
+        ShortcutConfiguration.displayName(keyCode: keyCode, modifiers: modifiers)
     }
 
     // MARK: - Key name mapping
