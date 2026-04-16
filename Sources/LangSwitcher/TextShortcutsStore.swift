@@ -14,14 +14,18 @@ final class TextShortcutsStore {
 
     private static let defaultsKey = "TextShortcuts"
 
-    private(set) var shortcuts: [TextShortcut] = []
+    private var expansionsByTrigger: [String: String] = [:]
+
+    private(set) var shortcuts: [TextShortcut] = [] {
+        didSet { rebuildLookup() }
+    }
 
     private init() { load() }
 
     // MARK: - Lookup
 
     func expansion(for trigger: String) -> String? {
-        shortcuts.first { $0.trigger == trigger }?.expansion
+        expansionsByTrigger[trigger]
     }
 
     // MARK: - Mutation
@@ -55,5 +59,17 @@ final class TextShortcutsStore {
     private func save() {
         guard let data = try? JSONEncoder().encode(shortcuts) else { return }
         UserDefaults.standard.set(data, forKey: Self.defaultsKey)
+    }
+
+    private func rebuildLookup() {
+        var lookup: [String: String] = [:]
+        lookup.reserveCapacity(shortcuts.count)
+
+        // Match the previous linear scan behavior: the first shortcut wins.
+        for shortcut in shortcuts.reversed() {
+            lookup[shortcut.trigger] = shortcut.expansion
+        }
+
+        expansionsByTrigger = lookup
     }
 }

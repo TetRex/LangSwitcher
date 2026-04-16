@@ -237,6 +237,24 @@ enum CyrillicMapper {
         "/opt/homebrew/bin", "/opt/homebrew/sbin",
     ]
 
+    /// Installed shell commands discovered once from common PATH directories.
+    private static let shellCommands: Set<String> = {
+        let fm = FileManager.default
+        var commands = shellBuiltins
+
+        for dir in shellCommandDirs {
+            guard let entries = try? fm.contentsOfDirectory(atPath: dir) else {
+                continue
+            }
+
+            for entry in entries where fm.isExecutableFile(atPath: dir + "/" + entry) {
+                commands.insert(entry)
+            }
+        }
+
+        return commands
+    }()
+
     /// Returns `true` when `word` is a shell built-in or an executable found
     /// in common PATH directories. Only accepts words made of letters, digits,
     /// hyphens, underscores, and dots (valid command-name characters).
@@ -246,13 +264,7 @@ enum CyrillicMapper {
               word.allSatisfy({ $0.isLetter || $0.isNumber || $0 == "-" || $0 == "_" || $0 == "." })
         else { return false }
 
-        if shellBuiltins.contains(word) { return true }
-
-        let fm = FileManager.default
-        for dir in shellCommandDirs {
-            if fm.isExecutableFile(atPath: dir + "/" + word) { return true }
-        }
-        return false
+        return shellCommands.contains(word)
     }
 
     /// Returns `true` when the word is a valid English word according to
