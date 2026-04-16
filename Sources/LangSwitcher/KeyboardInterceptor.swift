@@ -14,6 +14,9 @@ final class KeyboardInterceptor {
     private static let maxWordLength = 80       // cap buffer to prevent unbounded growth
     private var lastShortcutTime: CFAbsoluteTime = 0  // for double‑tap mode
     private let doubleTapInterval: CFAbsoluteTime = 0.4
+    private var appActivationObserver: NSObjectProtocol?
+    private var inputSourceObserver: NSObjectProtocol?
+    private var inputSourceCache = InputSourceCache.empty
     var isEnabled: Bool = true
     /// Virtual key code for the force‑convert shortcut.
     var forceConvertKeyCode: Int
@@ -36,14 +39,8 @@ final class KeyboardInterceptor {
     func startEventTap() {
         guard eventTap == nil else { return }
 
-        // Reset word buffer when the user switches to a different app.
-        NSWorkspace.shared.notificationCenter.addObserver(
-            forName: NSWorkspace.didActivateApplicationNotification,
-            object: nil,
-            queue: .main
-        ) { [weak self] _ in
-            MainActor.assumeIsolated { self?.currentWord = "" }
-        }
+        registerObserversIfNeeded()
+        refreshInputSourceCache()
 
         let mask: CGEventMask =
             (1 << CGEventType.keyDown.rawValue)
@@ -335,6 +332,120 @@ final class KeyboardInterceptor {
 
     // MARK: - Helpers
 
+    private struct InputSourceCache {
+        var englishSource: TISInputSource?
+        var cyrillicFallbackSource: TISInputSource?
+        var cyrillicSourcesByLanguage: [String: TISInputSource]
+
+        static let empty = Self(
+            englishSource: nil,
+            cyrillicFallbackSource: nil,
+            cyrillicSourcesByLanguage: [:]
+        )
+    }
+
+    private static let englishLayoutIdentifiers = [
+        "com.apple.keylayout.US",
+        "com.apple.keylayout.ABC",
+        "com.apple.keylayout.British",
+    ]
+
+    private static let cyrillicLayoutIdentifiersByLanguage: [String: [String]] = [
+        "uk": ["com.apple.keylayout.Ukrainian"],
+        "ru": ["com.apple.keylayout.Russian", "com.apple.keylayout.RussianWin"],
+    ]
+
+    private static let cyrillicLayoutIdentifiers: [String] =
+        Array(cyrillicLayoutIdentifiersByLanguage.values.joined())
+
+    private func registerObserversIfNeeded() {
+        if appActivationObserver == nil {
+            appActivationObserver = NSWorkspace.shared.notificationCenter.addObserver(
+                forName: NSWorkspace.didActivateApplicationNotification,
+                object: nil,
+                queue: .main
+            ) { [weak self] _ in
+                MainActor.assumeIsolated { self?.currentWord = "" }
+            }
+        }
+
+        if inputSourceObserver == nil {
+            inputSourceObserver = DistributedNotificationCenter.default().addObserver(
+                forName: Notification.Name(kTISNotifyEnabledKeyboardInputSourcesChanged as String),
+                object: nil,
+                queue: .main
+            ) { [weak self] _ in
+                MainActor.assumeIsolated { self?.refreshInputSourceCache() }
+            }
+        }
+    }
+
+    private func refreshInputSourceCache() {
+        guard let sources = TISCreateInputSourceList(Self.inputSourceCriteria, false)?
+                .takeRetainedValue() as? [TISInputSource] else {
+            inputSourceCache = .empty
+            return
+        }
+
+        var englishSource: TISInputSource?
+        var cyrillicFallbackSource: TISInputSource?
+        var cyrillicSourcesByLanguage: [String: TISInputSource] = [:]
+
+        for source in sources {
+            guard let sourceID = sourceID(for: source) else {
+                continue
+            }
+
+            if englishSource == nil, matchesInputSourceID(sourceID, identifiers: Self.englishLayoutIdentifiers) {
+                englishSource = source
+            }
+
+            guard matchesInputSourceID(sourceID, identifiers: Self.cyrillicLayoutIdentifiers) else {
+                continue
+            }
+
+            if cyrillicFallbackSource == nil {
+                cyrillicFallbackSource = source
+            }
+
+            for (language, identifiers) in Self.cyrillicLayoutIdentifiersByLanguage
+            where cyrillicSourcesByLanguage[language] == nil
+                    && matchesInputSourceID(sourceID, identifiers: identifiers) {
+                cyrillicSourcesByLanguage[language] = source
+            }
+
+            if englishSource != nil
+                && cyrillicFallbackSource != nil
+                && cyrillicSourcesByLanguage.count == Self.cyrillicLayoutIdentifiersByLanguage.count {
+                break
+            }
+        }
+
+        inputSourceCache = InputSourceCache(
+            englishSource: englishSource,
+            cyrillicFallbackSource: cyrillicFallbackSource,
+            cyrillicSourcesByLanguage: cyrillicSourcesByLanguage
+        )
+    }
+
+    private func sourceID(for source: TISInputSource) -> String? {
+        guard let idPtr = TISGetInputSourceProperty(source, kTISPropertyInputSourceID) else {
+            return nil
+        }
+
+        return Unmanaged<CFString>.fromOpaque(idPtr).takeUnretainedValue() as String
+    }
+
+    private func matchesInputSourceID(_ sourceID: String, identifiers: [String]) -> Bool {
+        identifiers.contains { sourceID.contains($0) }
+    }
+
+    @discardableResult
+    private func selectInputSource(_ source: TISInputSource?) -> Bool {
+        guard let source else { return false }
+        return TISSelectInputSource(source) == noErr
+    }
+
     /// Criteria dictionary for finding keyboard input sources (allocated once).
     private static let inputSourceCriteria: CFDictionary = [
         kTISPropertyInputSourceCategory: kTISCategoryKeyboardInputSource as Any,
@@ -344,71 +455,26 @@ final class KeyboardInterceptor {
 
     /// Switches the active keyboard layout to the first English (ABC/US) input source.
     private func switchToEnglishLayout() {
-        guard let sources = TISCreateInputSourceList(Self.inputSourceCriteria, false)?
-                .takeRetainedValue() as? [TISInputSource] else { return }
-
-        for source in sources {
-            guard let idPtr = TISGetInputSourceProperty(source, kTISPropertyInputSourceID) else {
-                continue
-            }
-            let sourceID = Unmanaged<CFString>.fromOpaque(idPtr).takeUnretainedValue() as String
-            // Match common English layouts: US, ABC, British, etc.
-            if sourceID.contains("com.apple.keylayout.US")
-                || sourceID.contains("com.apple.keylayout.ABC")
-                || sourceID.contains("com.apple.keylayout.British") {
-                TISSelectInputSource(source)
-                return
-            }
+        if selectInputSource(inputSourceCache.englishSource) {
+            return
         }
+
+        refreshInputSourceCache()
+        _ = selectInputSource(inputSourceCache.englishSource)
     }
 
     /// Switches the active keyboard layout to a Cyrillic (Russian/Ukrainian) input source.
     /// When `preferredLanguage` is provided ("uk" or "ru"), the matching layout is
     /// selected first; otherwise the first available Cyrillic layout is used.
     private func switchToCyrillicLayout(preferredLanguage: String? = nil) {
-        guard let sources = TISCreateInputSourceList(Self.inputSourceCriteria, false)?
-                .takeRetainedValue() as? [TISInputSource] else { return }
-
-        let cyrillicIDs = [
-            "com.apple.keylayout.Ukrainian",
-            "com.apple.keylayout.Russian",
-            "com.apple.keylayout.RussianWin",
-        ]
-
-        func isCyrillicSource(_ id: String) -> Bool {
-            cyrillicIDs.contains { id.contains($0) }
+        let preferredSource = preferredLanguage.flatMap { inputSourceCache.cyrillicSourcesByLanguage[$0] }
+        if selectInputSource(preferredSource) || selectInputSource(inputSourceCache.cyrillicFallbackSource) {
+            return
         }
 
-        func matchesLanguage(_ id: String, _ lang: String) -> Bool {
-            switch lang {
-            case "uk": return id.contains("com.apple.keylayout.Ukrainian")
-            case "ru": return id.contains("com.apple.keylayout.Russian")
-                           || id.contains("com.apple.keylayout.RussianWin")
-            default:   return false
-            }
-        }
-
-        var fallback: TISInputSource?
-
-        for source in sources {
-            guard let idPtr = TISGetInputSourceProperty(source, kTISPropertyInputSourceID) else {
-                continue
-            }
-            let sourceID = Unmanaged<CFString>.fromOpaque(idPtr).takeUnretainedValue() as String
-            guard isCyrillicSource(sourceID) else { continue }
-
-            if let lang = preferredLanguage, matchesLanguage(sourceID, lang) {
-                TISSelectInputSource(source)
-                return
-            }
-            if fallback == nil {
-                fallback = source
-            }
-        }
-
-        if let fallback {
-            TISSelectInputSource(fallback)
-        }
+        refreshInputSourceCache()
+        let refreshedPreferredSource = preferredLanguage.flatMap { inputSourceCache.cyrillicSourcesByLanguage[$0] }
+        _ = selectInputSource(refreshedPreferredSource) || selectInputSource(inputSourceCache.cyrillicFallbackSource)
     }
 
     /// Key codes that don't produce printable characters (allocated once).
