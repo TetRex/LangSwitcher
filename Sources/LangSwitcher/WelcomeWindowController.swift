@@ -11,7 +11,9 @@ final class WelcomeWindowController: NSWindowController {
 
     var onShortcutChanged: ((_ keyCode: Int, _ modifiers: UInt64) -> Void)?
 
-    private let shortcutButton = NSButton()
+    private let shortcutContainer = NSView()
+    private let shortcutField = NSTextField(labelWithString: "")
+    private let recordShortcutButton = NSButton()
     private let shortcutHintLabel = NSTextField(labelWithString: "")
     private let statusSummaryLabel = NSTextField(labelWithString: "")
     private let grantButton = NSButton()
@@ -166,19 +168,36 @@ final class WelcomeWindowController: NSWindowController {
             "Use this while typing whenever you want to flip the current word without waiting for Space."
         )
 
-        shortcutButton.target = self
-        shortcutButton.action = #selector(startRecordingShortcut)
-        shortcutButton.font = .monospacedSystemFont(ofSize: 15, weight: .medium)
-        shortcutButton.bezelStyle = .rounded
-        shortcutButton.controlSize = .large
-        shortcutButton.translatesAutoresizingMaskIntoConstraints = false
+        shortcutContainer.wantsLayer = true
+        shortcutContainer.layer?.cornerRadius = 10
+        shortcutContainer.layer?.borderWidth = 1
+        shortcutContainer.layer?.borderColor = NSColor.separatorColor.cgColor
+        shortcutContainer.layer?.backgroundColor = NSColor.textBackgroundColor.cgColor
+        shortcutContainer.translatesAutoresizingMaskIntoConstraints = false
+        shortcutContainer.addGestureRecognizer(NSClickGestureRecognizer(target: self, action: #selector(startRecordingShortcut)))
+
+        shortcutField.font = .monospacedSystemFont(ofSize: 15, weight: .medium)
+        shortcutField.textColor = .labelColor
+        shortcutField.alignment = .center
+        shortcutField.lineBreakMode = .byTruncatingTail
+        shortcutField.translatesAutoresizingMaskIntoConstraints = false
+        shortcutContainer.addSubview(shortcutField)
+
+        configureSecondaryButton(recordShortcutButton, title: "Record Shortcut", symbol: "pencil.line")
+        recordShortcutButton.target = self
+        recordShortcutButton.action = #selector(startRecordingShortcut)
+
+        let controlsRow = NSStackView(views: [shortcutContainer, recordShortcutButton])
+        controlsRow.orientation = .horizontal
+        controlsRow.alignment = .centerY
+        controlsRow.spacing = 10
 
         shortcutHintLabel.font = .systemFont(ofSize: 12)
         shortcutHintLabel.textColor = .secondaryLabelColor
         shortcutHintLabel.maximumNumberOfLines = 0
         shortcutHintLabel.lineBreakMode = .byWordWrapping
 
-        let stack = NSStackView(views: [header, description, shortcutButton, shortcutHintLabel])
+        let stack = NSStackView(views: [header, description, controlsRow, shortcutHintLabel])
         stack.orientation = .vertical
         stack.alignment = .leading
         stack.spacing = 8
@@ -186,7 +205,11 @@ final class WelcomeWindowController: NSWindowController {
         card.addSubview(stack)
 
         NSLayoutConstraint.activate([
-            shortcutButton.widthAnchor.constraint(greaterThanOrEqualToConstant: 220),
+            shortcutContainer.widthAnchor.constraint(greaterThanOrEqualToConstant: 220),
+            shortcutContainer.heightAnchor.constraint(equalToConstant: 38),
+            shortcutField.leadingAnchor.constraint(equalTo: shortcutContainer.leadingAnchor, constant: 10),
+            shortcutField.trailingAnchor.constraint(equalTo: shortcutContainer.trailingAnchor, constant: -10),
+            shortcutField.centerYAnchor.constraint(equalTo: shortcutContainer.centerYAnchor),
             stack.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 18),
             stack.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -18),
             stack.topAnchor.constraint(equalTo: card.topAnchor, constant: 18),
@@ -302,11 +325,13 @@ final class WelcomeWindowController: NSWindowController {
 
     private func refreshShortcutDisplay() {
         let shortcut = ShortcutConfiguration.displayName(keyCode: currentKeyCode, modifiers: currentModifiers)
-        shortcutButton.title = shortcutRecorder.isRecording ? "Recording…" : shortcut
-        shortcutButton.contentTintColor = shortcutRecorder.isRecording ? .systemRed : .controlAccentColor
+        shortcutField.stringValue = shortcutRecorder.isRecording ? "Recording…" : shortcut
+        shortcutField.textColor = shortcutRecorder.isRecording ? .systemRed : .labelColor
+        shortcutContainer.layer?.borderColor = (shortcutRecorder.isRecording ? NSColor.systemRed : NSColor.separatorColor).cgColor
+        recordShortcutButton.contentTintColor = shortcutRecorder.isRecording ? .systemRed : .controlAccentColor
         shortcutHintLabel.stringValue = shortcutRecorder.isRecording
             ? "Press Escape to cancel, or press the shortcut you want to use."
-            : "Current shortcut: \(shortcut)"
+            : "Click the field or use “Record Shortcut” to change it. Current shortcut: \(shortcut)"
     }
 
     private func refreshSetupState() {
@@ -352,8 +377,10 @@ final class WelcomeWindowController: NSWindowController {
 
     @objc private func startRecordingShortcut() {
         refreshShortcutDisplay()
-        shortcutButton.title = "Recording…"
-        shortcutButton.contentTintColor = .systemRed
+        shortcutField.stringValue = "Recording…"
+        shortcutField.textColor = .systemRed
+        shortcutContainer.layer?.borderColor = NSColor.systemRed.cgColor
+        recordShortcutButton.contentTintColor = .systemRed
         shortcutHintLabel.stringValue = "Press Escape to cancel, or press the shortcut you want to use."
 
         shortcutRecorder.start { [weak self] in

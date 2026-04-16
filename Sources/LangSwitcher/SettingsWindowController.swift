@@ -5,7 +5,9 @@ import AppKit
 @MainActor
 final class SettingsWindowController: NSWindowController {
 
-    private let shortcutButton = NSButton()
+    private let shortcutContainer = NSView()
+    private let shortcutField = NSTextField(labelWithString: "")
+    private let recordShortcutButton = NSButton()
     private let instructionLabel = NSTextField(labelWithString: "")
     private let modeLabel = NSTextField(labelWithString: "")
     private let validationLabel = NSTextField(labelWithString: "")
@@ -120,13 +122,28 @@ final class SettingsWindowController: NSWindowController {
             "Click the shortcut button, then press the key combination you want to use while typing."
         )
 
-        shortcutButton.title = ""
-        shortcutButton.target = self
-        shortcutButton.action = #selector(startRecording)
-        shortcutButton.font = .monospacedSystemFont(ofSize: 15, weight: .medium)
-        shortcutButton.bezelStyle = .rounded
-        shortcutButton.controlSize = .large
-        shortcutButton.translatesAutoresizingMaskIntoConstraints = false
+        shortcutContainer.wantsLayer = true
+        shortcutContainer.layer?.cornerRadius = 10
+        shortcutContainer.layer?.borderWidth = 1
+        shortcutContainer.layer?.borderColor = NSColor.separatorColor.cgColor
+        shortcutContainer.layer?.backgroundColor = NSColor.textBackgroundColor.cgColor
+        shortcutContainer.translatesAutoresizingMaskIntoConstraints = false
+        shortcutContainer.addGestureRecognizer(NSClickGestureRecognizer(target: self, action: #selector(startRecording)))
+
+        shortcutField.font = .monospacedSystemFont(ofSize: 15, weight: .medium)
+        shortcutField.textColor = .labelColor
+        shortcutField.alignment = .center
+        shortcutField.lineBreakMode = .byTruncatingTail
+        shortcutField.translatesAutoresizingMaskIntoConstraints = false
+        shortcutContainer.addSubview(shortcutField)
+
+        configureButton(recordShortcutButton, title: "Record Shortcut", symbol: "pencil.line")
+        recordShortcutButton.action = #selector(startRecording)
+
+        let controlsRow = NSStackView(views: [shortcutContainer, recordShortcutButton])
+        controlsRow.orientation = .horizontal
+        controlsRow.alignment = .centerY
+        controlsRow.spacing = 10
 
         instructionLabel.font = .systemFont(ofSize: 12)
         instructionLabel.textColor = .secondaryLabelColor
@@ -136,7 +153,7 @@ final class SettingsWindowController: NSWindowController {
         modeLabel.font = .systemFont(ofSize: 12, weight: .medium)
         modeLabel.textColor = .tertiaryLabelColor
 
-        let stack = NSStackView(views: [header, description, shortcutButton, instructionLabel, modeLabel])
+        let stack = NSStackView(views: [header, description, controlsRow, instructionLabel, modeLabel])
         stack.orientation = .vertical
         stack.alignment = .leading
         stack.spacing = 8
@@ -144,7 +161,11 @@ final class SettingsWindowController: NSWindowController {
         card.addSubview(stack)
 
         NSLayoutConstraint.activate([
-            shortcutButton.widthAnchor.constraint(greaterThanOrEqualToConstant: 220),
+            shortcutContainer.widthAnchor.constraint(greaterThanOrEqualToConstant: 220),
+            shortcutContainer.heightAnchor.constraint(equalToConstant: 38),
+            shortcutField.leadingAnchor.constraint(equalTo: shortcutContainer.leadingAnchor, constant: 10),
+            shortcutField.trailingAnchor.constraint(equalTo: shortcutContainer.trailingAnchor, constant: -10),
+            shortcutField.centerYAnchor.constraint(equalTo: shortcutContainer.centerYAnchor),
             stack.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 18),
             stack.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -18),
             stack.topAnchor.constraint(equalTo: card.topAnchor, constant: 18),
@@ -259,11 +280,13 @@ final class SettingsWindowController: NSWindowController {
 
     private func updateShortcutDisplay() {
         let displayName = ShortcutConfiguration.displayName(keyCode: currentKeyCode, modifiers: currentModifiers)
-        shortcutButton.title = shortcutRecorder.isRecording ? "Recording…" : displayName
-        shortcutButton.contentTintColor = shortcutRecorder.isRecording ? .systemRed : .controlAccentColor
+        shortcutField.stringValue = shortcutRecorder.isRecording ? "Recording…" : displayName
+        shortcutField.textColor = shortcutRecorder.isRecording ? .systemRed : .labelColor
+        shortcutContainer.layer?.borderColor = (shortcutRecorder.isRecording ? NSColor.systemRed : NSColor.separatorColor).cgColor
+        recordShortcutButton.contentTintColor = shortcutRecorder.isRecording ? .systemRed : .controlAccentColor
         instructionLabel.stringValue = shortcutRecorder.isRecording
             ? "Press Escape to cancel, or press the new shortcut now."
-            : "Current shortcut: \(displayName)"
+            : "Click the field or choose “Record Shortcut” to change it. Current shortcut: \(displayName)"
 
         let hasModifiers = ShortcutConfiguration.significantModifiers(currentModifiers) != 0
         modeLabel.stringValue = hasModifiers
@@ -273,8 +296,10 @@ final class SettingsWindowController: NSWindowController {
 
     @objc private func startRecording() {
         updateShortcutDisplay()
-        shortcutButton.title = "Recording…"
-        shortcutButton.contentTintColor = .systemRed
+        shortcutField.stringValue = "Recording…"
+        shortcutField.textColor = .systemRed
+        shortcutContainer.layer?.borderColor = NSColor.systemRed.cgColor
+        recordShortcutButton.contentTintColor = .systemRed
         instructionLabel.stringValue = "Press Escape to cancel, or press the new shortcut now."
 
         shortcutRecorder.start { [weak self] in

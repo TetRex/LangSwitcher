@@ -135,15 +135,13 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         let image = NSImage(systemSymbolName: "keyboard", accessibilityDescription: "LangSwitcher")
         image?.isTemplate = true
         button.image = image
+        button.contentTintColor = nil
 
         if !accessibilityGranted {
-            button.contentTintColor = .systemOrange
             button.toolTip = "LangSwitcher needs Accessibility permission"
         } else if interceptor.isEnabled {
-            button.contentTintColor = .controlAccentColor
             button.toolTip = "LangSwitcher is enabled"
         } else {
-            button.contentTintColor = .secondaryLabelColor
             button.toolTip = "LangSwitcher is paused"
         }
     }
