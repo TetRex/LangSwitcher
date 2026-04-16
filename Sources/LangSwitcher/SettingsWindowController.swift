@@ -1,273 +1,294 @@
 import AppKit
-import Carbon.HIToolbox
 
-/// A settings window that lets the user configure the force‑convert shortcut
+/// A settings window that lets the user configure the force-convert shortcut
 /// and manage custom text expansion shortcuts.
 @MainActor
 final class SettingsWindowController: NSWindowController {
 
-    // MARK: - UI — force-convert shortcut
-
-    private let shortcutField = NSTextField()
+    private let shortcutButton = NSButton()
     private let instructionLabel = NSTextField(labelWithString: "")
     private let modeLabel = NSTextField(labelWithString: "")
+    private let validationLabel = NSTextField(labelWithString: "")
     private let shortcutRecorder = ShortcutRecorder()
 
     /// Called when the user picks a new shortcut.
     var onShortcutChanged: ((_ keyCode: Int, _ modifiers: UInt64) -> Void)?
 
-    // MARK: - UI — text shortcuts table
-
     private let shortcutsTableView = NSTableView()
     private let shortcutsScrollView = NSScrollView()
-    private var addButton: NSButton!
-    private var removeButton: NSButton!
-
-    // MARK: - Current shortcut value
+    private let addButton = NSButton()
+    private let removeButton = NSButton()
 
     private var currentKeyCode: Int
-    private var currentModifiers: UInt64   // raw CGEventFlags bits for ⌘⌥⌃⇧
-
-    // MARK: - Init
+    private var currentModifiers: UInt64
 
     init(currentKeyCode: Int, currentModifiers: UInt64) {
         self.currentKeyCode = currentKeyCode
         self.currentModifiers = currentModifiers
 
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 460, height: 420),
-            styleMask: [.titled, .closable, .fullSizeContentView],
+            contentRect: NSRect(x: 0, y: 0, width: 560, height: 500),
+            styleMask: [.titled, .closable, .miniaturizable],
             backing: .buffered,
             defer: false
         )
-        window.title = "LangSwitcher Prefernces"
-        window.titlebarAppearsTransparent = true
-        window.titleVisibility = .hidden
-        window.appearance = NSAppearance(named: .darkAqua)
-        window.backgroundColor = .black
+        window.title = "LangSwitcher Preferences"
+        window.toolbarStyle = .preference
         window.center()
         window.isReleasedWhenClosed = false
+        window.backgroundColor = .windowBackgroundColor
 
         super.init(window: window)
         buildUI()
-        updateFieldDisplay()
+        updateShortcutDisplay()
+        updateValidationUI()
     }
 
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError() }
 
-    // MARK: - UI construction
+    // MARK: - UI Construction
 
-    // Convenience: small uppercase gray section header
     private static func makeSectionHeader(_ text: String) -> NSTextField {
-        let label = NSTextField(labelWithString: text.uppercased())
-        label.font = .systemFont(ofSize: 10, weight: .semibold)
-        label.textColor = NSColor(white: 0.45, alpha: 1)
-        label.translatesAutoresizingMaskIntoConstraints = false
+        let label = NSTextField(labelWithString: text)
+        label.font = .systemFont(ofSize: 13, weight: .semibold)
+        label.textColor = .labelColor
+        return label
+    }
+
+    private static func makeSecondaryLabel(_ text: String) -> NSTextField {
+        let label = NSTextField(labelWithString: text)
+        label.font = .systemFont(ofSize: 12)
+        label.textColor = .secondaryLabelColor
+        label.maximumNumberOfLines = 0
+        label.lineBreakMode = .byWordWrapping
         return label
     }
 
     private func buildUI() {
         guard let contentView = window?.contentView else { return }
 
-        contentView.wantsLayer = true
-        contentView.layer?.backgroundColor = NSColor.black.cgColor
+        let backgroundView = NSVisualEffectView()
+        backgroundView.material = .windowBackground
+        backgroundView.blendingMode = .behindWindow
+        backgroundView.state = .active
+        backgroundView.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(backgroundView)
 
-        // App title at the top
-        let appTitle = NSTextField(labelWithString: "Preferences")
-        appTitle.font = .systemFont(ofSize: 15, weight: .semibold)
-        appTitle.textColor = .white
-        appTitle.translatesAutoresizingMaskIntoConstraints = false
-        contentView.addSubview(appTitle)
+        let contentStack = NSStackView()
+        contentStack.orientation = .vertical
+        contentStack.alignment = .leading
+        contentStack.spacing = 18
+        contentStack.translatesAutoresizingMaskIntoConstraints = false
+        backgroundView.addSubview(contentStack)
 
-        // — Force-convert shortcut section —
+        let titleLabel = NSTextField(labelWithString: "Preferences")
+        titleLabel.font = .systemFont(ofSize: 22, weight: .semibold)
+        titleLabel.textColor = .labelColor
 
-        let shortcutHeader = Self.makeSectionHeader("Force‑Convert Shortcut")
-        contentView.addSubview(shortcutHeader)
+        let subtitleLabel = Self.makeSecondaryLabel(
+            "Adjust your force-convert shortcut and manage the text expansions LangSwitcher should type for you."
+        )
 
-        // Container gives the dark rounded background; the field sits centered inside it.
-        let shortcutContainer = NSView()
-        shortcutContainer.wantsLayer = true
-        shortcutContainer.layer?.backgroundColor = NSColor(white: 0.12, alpha: 1).cgColor
-        shortcutContainer.layer?.cornerRadius = 8
-        shortcutContainer.layer?.borderWidth = 1
-        shortcutContainer.layer?.borderColor = NSColor(white: 0.28, alpha: 1).cgColor
-        shortcutContainer.translatesAutoresizingMaskIntoConstraints = false
-        contentView.addSubview(shortcutContainer)
+        let headerStack = NSStackView(views: [titleLabel, subtitleLabel])
+        headerStack.orientation = .vertical
+        headerStack.alignment = .leading
+        headerStack.spacing = 4
+        contentStack.addArrangedSubview(headerStack)
 
-        shortcutField.isEditable = false
-        shortcutField.isSelectable = false
-        shortcutField.alignment = .center
-        shortcutField.font = .monospacedSystemFont(ofSize: 15, weight: .medium)
-        shortcutField.isBezeled = false
-        shortcutField.drawsBackground = false
-        shortcutField.textColor = .white
-        shortcutField.translatesAutoresizingMaskIntoConstraints = false
-        shortcutContainer.addSubview(shortcutField)
+        contentStack.addArrangedSubview(makeShortcutCard())
+        contentStack.addArrangedSubview(makeTextShortcutsCard())
 
         NSLayoutConstraint.activate([
-            shortcutField.centerYAnchor.constraint(equalTo: shortcutContainer.centerYAnchor),
-            shortcutField.leadingAnchor.constraint(equalTo: shortcutContainer.leadingAnchor, constant: 8),
-            shortcutField.trailingAnchor.constraint(equalTo: shortcutContainer.trailingAnchor, constant: -8),
+            backgroundView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
+            backgroundView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
+            backgroundView.topAnchor.constraint(equalTo: contentView.topAnchor),
+            backgroundView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
+
+            contentStack.leadingAnchor.constraint(equalTo: backgroundView.leadingAnchor, constant: 24),
+            contentStack.trailingAnchor.constraint(equalTo: backgroundView.trailingAnchor, constant: -24),
+            contentStack.topAnchor.constraint(equalTo: backgroundView.topAnchor, constant: 24),
+            contentStack.bottomAnchor.constraint(lessThanOrEqualTo: backgroundView.bottomAnchor, constant: -24),
+        ])
+    }
+
+    private func makeShortcutCard() -> NSView {
+        let card = makeCardView()
+
+        let header = Self.makeSectionHeader("Force Convert Shortcut")
+        let description = Self.makeSecondaryLabel(
+            "Click the shortcut button, then press the key combination you want to use while typing."
+        )
+
+        shortcutButton.title = ""
+        shortcutButton.target = self
+        shortcutButton.action = #selector(startRecording)
+        shortcutButton.font = .monospacedSystemFont(ofSize: 15, weight: .medium)
+        shortcutButton.bezelStyle = .rounded
+        shortcutButton.controlSize = .large
+        shortcutButton.translatesAutoresizingMaskIntoConstraints = false
+
+        instructionLabel.font = .systemFont(ofSize: 12)
+        instructionLabel.textColor = .secondaryLabelColor
+        instructionLabel.maximumNumberOfLines = 0
+        instructionLabel.lineBreakMode = .byWordWrapping
+
+        modeLabel.font = .systemFont(ofSize: 12, weight: .medium)
+        modeLabel.textColor = .tertiaryLabelColor
+
+        let stack = NSStackView(views: [header, description, shortcutButton, instructionLabel, modeLabel])
+        stack.orientation = .vertical
+        stack.alignment = .leading
+        stack.spacing = 8
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        card.addSubview(stack)
+
+        NSLayoutConstraint.activate([
+            shortcutButton.widthAnchor.constraint(greaterThanOrEqualToConstant: 220),
+            stack.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 18),
+            stack.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -18),
+            stack.topAnchor.constraint(equalTo: card.topAnchor, constant: 18),
+            stack.bottomAnchor.constraint(equalTo: card.bottomAnchor, constant: -18),
         ])
 
-        let click = NSClickGestureRecognizer(target: self, action: #selector(startRecording))
-        shortcutContainer.addGestureRecognizer(click)
+        return card
+    }
 
-        instructionLabel.font = .systemFont(ofSize: 11)
-        instructionLabel.textColor = NSColor(white: 0.45, alpha: 1)
-        instructionLabel.translatesAutoresizingMaskIntoConstraints = false
-        contentView.addSubview(instructionLabel)
+    private func makeTextShortcutsCard() -> NSView {
+        let card = makeCardView()
 
-        modeLabel.font = .systemFont(ofSize: 11)
-        modeLabel.textColor = NSColor(white: 0.3, alpha: 1)
-        modeLabel.translatesAutoresizingMaskIntoConstraints = false
-        contentView.addSubview(modeLabel)
+        let header = Self.makeSectionHeader("Text Shortcuts")
+        let description = Self.makeSecondaryLabel(
+            "Triggers are matched exactly as typed. Invalid entries are highlighted while you edit them."
+        )
 
-        // Thin dark separator
-        let separatorView = NSView()
-        separatorView.wantsLayer = true
-        separatorView.layer?.backgroundColor = NSColor(white: 0.2, alpha: 1).cgColor
-        separatorView.translatesAutoresizingMaskIntoConstraints = false
-        contentView.addSubview(separatorView)
+        configureShortcutButtons()
+        let actionsStack = NSStackView(views: [addButton, removeButton])
+        actionsStack.orientation = .horizontal
+        actionsStack.spacing = 8
 
-        // — Text shortcuts section —
+        let headerRow = NSStackView(views: [header, NSView(), actionsStack])
+        headerRow.orientation = .horizontal
+        headerRow.alignment = .centerY
+        headerRow.spacing = 8
 
-        let textShortcutsHeader = Self.makeSectionHeader("Text Shortcuts")
-        contentView.addSubview(textShortcutsHeader)
+        configureTableView()
 
-        let triggerCol = NSTableColumn(identifier: .init("trigger"))
-        triggerCol.title = "Shortcut"
-        triggerCol.width = 140
-        triggerCol.minWidth = 60
+        validationLabel.font = .systemFont(ofSize: 12, weight: .medium)
+        validationLabel.textColor = .secondaryLabelColor
+        validationLabel.maximumNumberOfLines = 0
+        validationLabel.lineBreakMode = .byWordWrapping
 
-        let expansionCol = NSTableColumn(identifier: .init("expansion"))
-        expansionCol.title = "Expands To"
-        expansionCol.minWidth = 120
+        let stack = NSStackView(views: [headerRow, description, shortcutsScrollView, validationLabel])
+        stack.orientation = .vertical
+        stack.alignment = .leading
+        stack.spacing = 10
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        card.addSubview(stack)
 
-        shortcutsTableView.addTableColumn(triggerCol)
-        shortcutsTableView.addTableColumn(expansionCol)
+        NSLayoutConstraint.activate([
+            shortcutsScrollView.heightAnchor.constraint(equalToConstant: 220),
+            stack.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 18),
+            stack.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -18),
+            stack.topAnchor.constraint(equalTo: card.topAnchor, constant: 18),
+            stack.bottomAnchor.constraint(equalTo: card.bottomAnchor, constant: -18),
+        ])
+
+        return card
+    }
+
+    private func makeCardView() -> NSView {
+        let card = NSView()
+        card.wantsLayer = true
+        card.layer?.cornerRadius = 14
+        card.layer?.borderWidth = 1
+        card.layer?.borderColor = NSColor.separatorColor.cgColor
+        card.layer?.backgroundColor = NSColor.controlBackgroundColor.withAlphaComponent(0.88).cgColor
+        return card
+    }
+
+    private func configureShortcutButtons() {
+        configureButton(addButton, title: "Add Shortcut", symbol: "plus")
+        addButton.action = #selector(addShortcut)
+
+        configureButton(removeButton, title: "Remove", symbol: "minus")
+        removeButton.action = #selector(removeShortcut)
+        removeButton.isEnabled = false
+    }
+
+    private func configureButton(_ button: NSButton, title: String, symbol: String) {
+        button.title = title
+        button.target = self
+        button.bezelStyle = .rounded
+        button.image = NSImage(systemSymbolName: symbol, accessibilityDescription: title)
+        button.imagePosition = .imageLeading
+        button.contentTintColor = .controlAccentColor
+    }
+
+    private func configureTableView() {
+        let triggerColumn = NSTableColumn(identifier: .init("trigger"))
+        triggerColumn.title = "Trigger"
+        triggerColumn.width = 150
+        triggerColumn.minWidth = 90
+
+        let expansionColumn = NSTableColumn(identifier: .init("expansion"))
+        expansionColumn.title = "Expands To"
+        expansionColumn.minWidth = 220
+
+        shortcutsTableView.addTableColumn(triggerColumn)
+        shortcutsTableView.addTableColumn(expansionColumn)
         shortcutsTableView.delegate = self
         shortcutsTableView.dataSource = self
-        shortcutsTableView.usesAlternatingRowBackgroundColors = false
-        shortcutsTableView.backgroundColor = NSColor(white: 0.08, alpha: 1)
-        shortcutsTableView.rowHeight = 26
-        shortcutsTableView.columnAutoresizingStyle = .lastColumnOnlyAutoresizingStyle
+        shortcutsTableView.rowHeight = 30
         shortcutsTableView.gridStyleMask = .solidHorizontalGridLineMask
-        shortcutsTableView.gridColor = NSColor(white: 0.18, alpha: 1)
+        shortcutsTableView.gridColor = .separatorColor
+        shortcutsTableView.backgroundColor = .textBackgroundColor
+        shortcutsTableView.selectionHighlightStyle = .regular
+        shortcutsTableView.usesAlternatingRowBackgroundColors = true
+        shortcutsTableView.columnAutoresizingStyle = .lastColumnOnlyAutoresizingStyle
 
         shortcutsScrollView.documentView = shortcutsTableView
         shortcutsScrollView.hasVerticalScroller = true
-        shortcutsScrollView.borderType = .noBorder
-        shortcutsScrollView.drawsBackground = false
-        shortcutsScrollView.wantsLayer = true
-        shortcutsScrollView.layer?.cornerRadius = 8
-        shortcutsScrollView.layer?.borderWidth = 1
-        shortcutsScrollView.layer?.borderColor = NSColor(white: 0.22, alpha: 1).cgColor
+        shortcutsScrollView.borderType = .bezelBorder
+        shortcutsScrollView.drawsBackground = true
+        shortcutsScrollView.backgroundColor = .textBackgroundColor
         shortcutsScrollView.translatesAutoresizingMaskIntoConstraints = false
-        contentView.addSubview(shortcutsScrollView)
-
-        // Segmented +/− control
-        let segmented = NSSegmentedControl()
-        segmented.segmentCount = 2
-        segmented.setImage(NSImage(systemSymbolName: "plus", accessibilityDescription: "Add")!, forSegment: 0)
-        segmented.setImage(NSImage(systemSymbolName: "minus", accessibilityDescription: "Remove")!, forSegment: 1)
-        segmented.segmentStyle = .smallSquare
-        segmented.target = self
-        segmented.action = #selector(segmentedAction(_:))
-        segmented.translatesAutoresizingMaskIntoConstraints = false
-        contentView.addSubview(segmented)
-
-        // Keep references so +/− can be controlled
-        addButton = NSButton(title: "+", target: self, action: #selector(addShortcut))
-        addButton.isHidden = true
-        removeButton = NSButton(title: "−", target: self, action: #selector(removeShortcut))
-        removeButton.isHidden = true
-        removeButton.isEnabled = false
-        contentView.addSubview(addButton)
-        contentView.addSubview(removeButton)
-
-        NSLayoutConstraint.activate([
-            // Center title in the transparent titlebar (≈28 pt tall)
-            appTitle.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
-            appTitle.centerYAnchor.constraint(equalTo: contentView.topAnchor, constant: 14),
-
-            // Content starts below the titlebar safe area
-            shortcutHeader.topAnchor.constraint(equalTo: contentView.safeAreaLayoutGuide.topAnchor, constant: 16),
-            shortcutHeader.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 22),
-
-            shortcutContainer.topAnchor.constraint(equalTo: shortcutHeader.bottomAnchor, constant: 8),
-            shortcutContainer.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 22),
-            shortcutContainer.widthAnchor.constraint(equalToConstant: 180),
-            shortcutContainer.heightAnchor.constraint(equalToConstant: 36),
-
-            instructionLabel.topAnchor.constraint(equalTo: shortcutContainer.bottomAnchor, constant: 8),
-            instructionLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 22),
-            instructionLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -22),
-
-            modeLabel.topAnchor.constraint(equalTo: instructionLabel.bottomAnchor, constant: 3),
-            modeLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 22),
-            modeLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -22),
-
-            separatorView.topAnchor.constraint(equalTo: modeLabel.bottomAnchor, constant: 18),
-            separatorView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 22),
-            separatorView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -22),
-            separatorView.heightAnchor.constraint(equalToConstant: 1),
-
-            textShortcutsHeader.topAnchor.constraint(equalTo: separatorView.bottomAnchor, constant: 14),
-            textShortcutsHeader.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 22),
-            textShortcutsHeader.centerYAnchor.constraint(equalTo: segmented.centerYAnchor),
-
-            segmented.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -22),
-            segmented.topAnchor.constraint(equalTo: separatorView.bottomAnchor, constant: 10),
-
-            shortcutsScrollView.topAnchor.constraint(equalTo: textShortcutsHeader.bottomAnchor, constant: 8),
-            shortcutsScrollView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 22),
-            shortcutsScrollView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -22),
-            shortcutsScrollView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -18),
-        ])
     }
 
-    @objc private func segmentedAction(_ sender: NSSegmentedControl) {
-        if sender.selectedSegment == 0 {
-            addShortcut()
-        } else {
-            removeShortcut()
-        }
-    }
+    // MARK: - Shortcut UI
 
-    // MARK: - Shortcut field display
-
-    private func updateFieldDisplay() {
-        shortcutField.stringValue = ShortcutConfiguration.displayName(keyCode: currentKeyCode,
-                                                                     modifiers: currentModifiers)
-        instructionLabel.stringValue = "Click the field, then press your shortcut."
+    private func updateShortcutDisplay() {
+        let displayName = ShortcutConfiguration.displayName(keyCode: currentKeyCode, modifiers: currentModifiers)
+        shortcutButton.title = shortcutRecorder.isRecording ? "Recording…" : displayName
+        shortcutButton.contentTintColor = shortcutRecorder.isRecording ? .systemRed : .controlAccentColor
+        instructionLabel.stringValue = shortcutRecorder.isRecording
+            ? "Press Escape to cancel, or press the new shortcut now."
+            : "Current shortcut: \(displayName)"
 
         let hasModifiers = ShortcutConfiguration.significantModifiers(currentModifiers) != 0
         modeLabel.stringValue = hasModifiers
-            ? "Mode: single press"
-            : "Mode: double‑tap"
+            ? "Single press mode"
+            : "Double-tap mode"
     }
 
-    // MARK: - Shortcut recording
-
     @objc private func startRecording() {
-        shortcutField.stringValue = "Press shortcut…"
-        instructionLabel.stringValue = "Press Escape to cancel. Hold modifiers + key."
+        updateShortcutDisplay()
+        shortcutButton.title = "Recording…"
+        shortcutButton.contentTintColor = .systemRed
+        instructionLabel.stringValue = "Press Escape to cancel, or press the new shortcut now."
 
         shortcutRecorder.start { [weak self] in
             guard let self else { return }
             MainActor.assumeIsolated {
-                self.updateFieldDisplay()
+                self.updateShortcutDisplay()
             }
         } onShortcut: { [weak self] keyCode, modifiers in
             guard let self else { return }
             MainActor.assumeIsolated {
                 self.currentKeyCode = keyCode
                 self.currentModifiers = modifiers
-                self.updateFieldDisplay()
-
                 ShortcutConfiguration.save(keyCode: keyCode, modifiers: modifiers)
+                self.updateShortcutDisplay()
                 self.onShortcutChanged?(keyCode, modifiers)
             }
         }
@@ -275,9 +296,10 @@ final class SettingsWindowController: NSWindowController {
 
     func stopShortcutRecording() {
         shortcutRecorder.stop()
+        updateShortcutDisplay()
     }
 
-    // MARK: - Text shortcuts actions
+    // MARK: - Text Shortcut Actions
 
     @objc private func addShortcut() {
         let store = TextShortcutsStore.shared
@@ -285,7 +307,8 @@ final class SettingsWindowController: NSWindowController {
         let newRow = store.shortcuts.count - 1
         shortcutsTableView.reloadData()
         shortcutsTableView.selectRowIndexes(IndexSet(integer: newRow), byExtendingSelection: false)
-        // Begin editing the trigger cell after the table has rendered the new row.
+        updateValidationUI()
+
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
             if let cell = self.shortcutsTableView.view(atColumn: 0, row: newRow, makeIfNecessary: false) as? NSTableCellView {
@@ -299,71 +322,83 @@ final class SettingsWindowController: NSWindowController {
         guard row >= 0 else { return }
         TextShortcutsStore.shared.remove(at: row)
         shortcutsTableView.reloadData()
-        removeButton.isEnabled = false
+        let nextRow = min(row, TextShortcutsStore.shared.shortcuts.count - 1)
+        if nextRow >= 0 {
+            shortcutsTableView.selectRowIndexes(IndexSet(integer: nextRow), byExtendingSelection: false)
+        }
+        updateValidationUI()
     }
 
-    // MARK: - Persistence helpers
+    // MARK: - Validation
 
-    static func savedKeyCode() -> Int {
-        ShortcutConfiguration.savedKeyCode()
+    private enum ShortcutIssue: String {
+        case empty = "Trigger cannot be empty."
+        case whitespace = "Trigger cannot contain only whitespace."
+        case duplicate = "Another shortcut already uses this trigger."
     }
 
-    static func savedModifiers() -> UInt64 {
-        ShortcutConfiguration.savedModifiers()
+    private func issue(forRow row: Int) -> ShortcutIssue? {
+        let shortcuts = TextShortcutsStore.shared.shortcuts
+        guard shortcuts.indices.contains(row) else { return nil }
+
+        let trigger = shortcuts[row].trigger
+        if trigger.isEmpty { return .empty }
+
+        let trimmed = trigger.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty { return .whitespace }
+
+        for (index, shortcut) in shortcuts.enumerated() where index != row {
+            if shortcut.trigger.trimmingCharacters(in: .whitespacesAndNewlines) == trimmed {
+                return .duplicate
+            }
+        }
+
+        return nil
     }
 
-    // MARK: - Modifier helpers
+    private func updateValidationUI() {
+        let selectedRow = shortcutsTableView.selectedRow
+        removeButton.isEnabled = selectedRow >= 0
 
-    /// Keeps only ⌘ ⌥ ⌃ ⇧ bits.
-    static func significantModifiers(_ raw: UInt64) -> UInt64 {
-        ShortcutConfiguration.significantModifiers(raw)
+        if selectedRow >= 0, let issue = issue(forRow: selectedRow) {
+            validationLabel.stringValue = issue.rawValue
+            validationLabel.textColor = .systemRed
+        } else {
+            let invalidRows = TextShortcutsStore.shared.shortcuts.indices.filter { issue(forRow: $0) != nil }
+            if invalidRows.isEmpty {
+                validationLabel.stringValue = "Triggers are matched exactly as typed, so short memorable words work best."
+                validationLabel.textColor = .secondaryLabelColor
+            } else {
+                validationLabel.stringValue = "\(invalidRows.count) shortcut issue\(invalidRows.count == 1 ? "" : "s") still need attention."
+                validationLabel.textColor = .systemOrange
+            }
+        }
+
+        shortcutsTableView.reloadData()
     }
 
-    /// Human‑readable name like "⌥T" or "⌘⇧K" or "Tab (×2)".
-    static func displayName(keyCode: Int, modifiers: UInt64) -> String {
-        ShortcutConfiguration.displayName(keyCode: keyCode, modifiers: modifiers)
+    private func styleTextField(_ textField: NSTextField, row: Int, isTrigger: Bool) {
+        textField.font = isTrigger
+            ? .monospacedSystemFont(ofSize: 13, weight: .medium)
+            : .systemFont(ofSize: 13)
+
+        if isTrigger, let issue = issue(forRow: row) {
+            textField.textColor = .systemRed
+            textField.toolTip = issue.rawValue
+        } else {
+            textField.textColor = .labelColor
+            textField.toolTip = nil
+        }
     }
 
-    // MARK: - Key name mapping
+    private func updateShortcut(at row: Int, trigger: String? = nil, expansion: String? = nil) {
+        let store = TextShortcutsStore.shared
+        guard store.shortcuts.indices.contains(row) else { return }
 
-    private static let keyNames: [Int: String] = [
-        kVK_Tab: "Tab",
-        kVK_Return: "Return",
-        kVK_Space: "Space",
-        kVK_Delete: "Delete",
-        kVK_ForwardDelete: "Fwd Delete",
-        kVK_Escape: "Escape",
-        kVK_F1: "F1", kVK_F2: "F2", kVK_F3: "F3", kVK_F4: "F4",
-        kVK_F5: "F5", kVK_F6: "F6", kVK_F7: "F7", kVK_F8: "F8",
-        kVK_F9: "F9", kVK_F10: "F10", kVK_F11: "F11", kVK_F12: "F12",
-        kVK_CapsLock: "Caps Lock",
-        kVK_LeftArrow: "←", kVK_RightArrow: "→",
-        kVK_UpArrow: "↑", kVK_DownArrow: "↓",
-        kVK_Home: "Home", kVK_End: "End",
-        kVK_PageUp: "Page Up", kVK_PageDown: "Page Down",
-        kVK_ANSI_A: "A", kVK_ANSI_B: "B", kVK_ANSI_C: "C",
-        kVK_ANSI_D: "D", kVK_ANSI_E: "E", kVK_ANSI_F: "F",
-        kVK_ANSI_G: "G", kVK_ANSI_H: "H", kVK_ANSI_I: "I",
-        kVK_ANSI_J: "J", kVK_ANSI_K: "K", kVK_ANSI_L: "L",
-        kVK_ANSI_M: "M", kVK_ANSI_N: "N", kVK_ANSI_O: "O",
-        kVK_ANSI_P: "P", kVK_ANSI_Q: "Q", kVK_ANSI_R: "R",
-        kVK_ANSI_S: "S", kVK_ANSI_T: "T", kVK_ANSI_U: "U",
-        kVK_ANSI_V: "V", kVK_ANSI_W: "W", kVK_ANSI_X: "X",
-        kVK_ANSI_Y: "Y", kVK_ANSI_Z: "Z",
-        kVK_ANSI_0: "0", kVK_ANSI_1: "1", kVK_ANSI_2: "2",
-        kVK_ANSI_3: "3", kVK_ANSI_4: "4", kVK_ANSI_5: "5",
-        kVK_ANSI_6: "6", kVK_ANSI_7: "7", kVK_ANSI_8: "8",
-        kVK_ANSI_9: "9",
-        kVK_ANSI_Grave: "`",
-        kVK_ANSI_Minus: "-", kVK_ANSI_Equal: "=",
-        kVK_ANSI_LeftBracket: "[", kVK_ANSI_RightBracket: "]",
-        kVK_ANSI_Semicolon: ";", kVK_ANSI_Quote: "'",
-        kVK_ANSI_Backslash: "\\", kVK_ANSI_Comma: ",",
-        kVK_ANSI_Period: ".", kVK_ANSI_Slash: "/",
-    ]
-
-    static func nameForKeyCode(_ keyCode: Int) -> String {
-        keyNames[keyCode] ?? "Key \(keyCode)"
+        let current = store.shortcuts[row]
+        store.update(at: row,
+                     trigger: trigger ?? current.trigger,
+                     expansion: expansion ?? current.expansion)
     }
 }
 
@@ -378,76 +413,76 @@ extension SettingsWindowController: NSTableViewDataSource {
 // MARK: - NSTableViewDelegate
 
 extension SettingsWindowController: NSTableViewDelegate {
-
     func tableView(_ tableView: NSTableView,
                    viewFor tableColumn: NSTableColumn?,
                    row: Int) -> NSView? {
         let isTrigger = tableColumn?.identifier.rawValue == "trigger"
-        let cellID = NSUserInterfaceItemIdentifier(isTrigger ? "TriggerCell" : "ExpansionCell")
+        let identifier = NSUserInterfaceItemIdentifier(isTrigger ? "TriggerCell" : "ExpansionCell")
 
-        let cell = tableView.makeView(withIdentifier: cellID, owner: self) as? NSTableCellView
-                   ?? makeShortcutCell(identifier: cellID, columnTag: isTrigger ? 0 : 1)
+        let cell = tableView.makeView(withIdentifier: identifier, owner: self) as? NSTableCellView
+            ?? makeShortcutCell(identifier: identifier, columnTag: isTrigger ? 0 : 1)
 
         let shortcuts = TextShortcutsStore.shared.shortcuts
-        guard shortcuts.indices.contains(row) else { return cell }
-        cell.textField?.stringValue = isTrigger ? shortcuts[row].trigger : shortcuts[row].expansion
+        guard shortcuts.indices.contains(row), let textField = cell.textField else { return cell }
+
+        textField.stringValue = isTrigger ? shortcuts[row].trigger : shortcuts[row].expansion
+        styleTextField(textField, row: row, isTrigger: isTrigger)
+        cell.toolTip = textField.toolTip
         return cell
     }
 
     func tableViewSelectionDidChange(_ notification: Notification) {
-        removeButton.isEnabled = shortcutsTableView.selectedRow >= 0
-        // The segmented control doesn't disable individual segments automatically,
-        // so we keep removeButton.isEnabled in sync for the action handler.
+        updateValidationUI()
     }
 
-    // MARK: - Cell factory
-
     private func makeShortcutCell(identifier: NSUserInterfaceItemIdentifier,
-                                   columnTag: Int) -> NSTableCellView {
+                                  columnTag: Int) -> NSTableCellView {
         let cell = NSTableCellView()
         cell.identifier = identifier
 
-        let tf = NSTextField()
-        tf.isEditable = true
-        tf.isBezeled = false
-        tf.drawsBackground = false
-        tf.font = .systemFont(ofSize: 13)
-        tf.textColor = .white
-        tf.delegate = self
-        tf.tag = columnTag   // 0 = trigger column, 1 = expansion column
-        tf.translatesAutoresizingMaskIntoConstraints = false
+        let textField = NSTextField()
+        textField.isEditable = true
+        textField.isBezeled = false
+        textField.drawsBackground = false
+        textField.delegate = self
+        textField.tag = columnTag
+        textField.translatesAutoresizingMaskIntoConstraints = false
 
-        cell.addSubview(tf)
-        cell.textField = tf
+        cell.addSubview(textField)
+        cell.textField = textField
 
         NSLayoutConstraint.activate([
-            tf.leadingAnchor.constraint(equalTo: cell.leadingAnchor, constant: 4),
-            tf.trailingAnchor.constraint(equalTo: cell.trailingAnchor, constant: -4),
-            tf.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
+            textField.leadingAnchor.constraint(equalTo: cell.leadingAnchor, constant: 6),
+            textField.trailingAnchor.constraint(equalTo: cell.trailingAnchor, constant: -6),
+            textField.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
         ])
 
         return cell
     }
 }
 
-// MARK: - NSTextFieldDelegate (inline cell editing)
+// MARK: - NSTextFieldDelegate
 
 extension SettingsWindowController: NSTextFieldDelegate {
-    func controlTextDidEndEditing(_ obj: Notification) {
-        guard let tf = obj.object as? NSTextField,
-              let cellView = tf.superview else { return }
+    func controlTextDidChange(_ obj: Notification) {
+        guard let textField = obj.object as? NSTextField,
+              let cellView = textField.superview else { return }
 
         let row = shortcutsTableView.row(for: cellView)
         guard row >= 0 else { return }
 
-        let store = TextShortcutsStore.shared
-        guard store.shortcuts.indices.contains(row) else { return }
-
-        let current = store.shortcuts[row]
-        if tf.tag == 0 {
-            store.update(at: row, trigger: tf.stringValue, expansion: current.expansion)
+        if textField.tag == 0 {
+            updateShortcut(at: row, trigger: textField.stringValue)
+            styleTextField(textField, row: row, isTrigger: true)
         } else {
-            store.update(at: row, trigger: current.trigger, expansion: tf.stringValue)
+            updateShortcut(at: row, expansion: textField.stringValue)
         }
+
+        updateValidationUI()
+    }
+
+    func controlTextDidEndEditing(_ obj: Notification) {
+        shortcutsTableView.reloadData()
+        updateValidationUI()
     }
 }

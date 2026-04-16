@@ -1,23 +1,21 @@
 import AppKit
 
-/// Custom About window with app icon, version, and feature list.
+/// Compact About window with app icon, version, and feature summary.
 @MainActor
 final class AboutWindowController: NSWindowController {
 
     init() {
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 340, height: 500),
-            styleMask: [.titled, .closable, .fullSizeContentView],
+            contentRect: NSRect(x: 0, y: 0, width: 360, height: 340),
+            styleMask: [.titled, .closable, .miniaturizable],
             backing: .buffered,
             defer: false
         )
         window.title = "About LangSwitcher"
-        window.titlebarAppearsTransparent = true
-        window.titleVisibility = .hidden
-        window.appearance = NSAppearance(named: .darkAqua)
-        window.backgroundColor = .black
+        window.toolbarStyle = .unifiedCompact
         window.center()
         window.isReleasedWhenClosed = false
+        window.backgroundColor = .windowBackgroundColor
 
         super.init(window: window)
         buildUI()
@@ -26,205 +24,134 @@ final class AboutWindowController: NSWindowController {
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError() }
 
-    // MARK: - UI
-
     private func buildUI() {
         guard let contentView = window?.contentView else { return }
-        contentView.wantsLayer = true
-        contentView.layer?.backgroundColor = NSColor.black.cgColor
 
-        // App icon
+        let backgroundView = NSVisualEffectView()
+        backgroundView.material = .windowBackground
+        backgroundView.blendingMode = .behindWindow
+        backgroundView.state = .active
+        backgroundView.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(backgroundView)
+
+        let stack = NSStackView()
+        stack.orientation = .vertical
+        stack.alignment = .centerX
+        stack.spacing = 10
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        backgroundView.addSubview(stack)
+
         let iconView = NSImageView()
         iconView.image = NSImage(named: "AppIconImage")
             ?? NSImage(systemSymbolName: "keyboard", accessibilityDescription: nil)
         iconView.imageScaling = .scaleProportionallyUpOrDown
-        iconView.wantsLayer = true
-        iconView.layer?.cornerRadius = 16
         iconView.translatesAutoresizingMaskIntoConstraints = false
-        contentView.addSubview(iconView)
-
-        // App name
-        let nameLabel = NSTextField(labelWithString: "LangSwitcher")
-        nameLabel.font = .systemFont(ofSize: 22, weight: .bold)
-        nameLabel.textColor = .white
-        nameLabel.alignment = .center
-        nameLabel.translatesAutoresizingMaskIntoConstraints = false
-        contentView.addSubview(nameLabel)
-
-        // Version badge
-        let versionBadge = makeVersionBadge("Version 0.4.0")
-        contentView.addSubview(versionBadge)
-
-        // Separator
-        let sep1 = makeSeparator()
-        contentView.addSubview(sep1)
-
-        // Feature rows
-        let features: [(String, String, String)] = [
-            ("arrow.2.squarepath",
-             "Cyrillic ⇄ English",
-             "Auto-corrects text typed on the wrong Cyrillic or QWERTY layout when you press Space or Enter."),
-            ("bolt.fill",
-             "Force Convert Shortcut",
-             "Press your shortcut mid-word to instantly convert without waiting for Space or Enter."),
-            ("text.badge.checkmark",
-             "Text Shortcuts",
-             "Define custom trigger → expansion pairs for frequently typed text (e.g. \"addr\" → your address)."),
-        ]
-
-        var featureRows: [NSView] = []
-        for (symbol, title, desc) in features {
-            let row = makeFeatureRow(symbol: symbol, title: title, description: desc)
-            contentView.addSubview(row)
-            featureRows.append(row)
-        }
-
-        let sep2 = makeSeparator()
-        contentView.addSubview(sep2)
-
-        let copyright = NSTextField(labelWithString: "© 2025 LangSwitcher")
-        copyright.font = .systemFont(ofSize: 10)
-        copyright.textColor = NSColor(white: 0.3, alpha: 1)
-        copyright.alignment = .center
-        copyright.translatesAutoresizingMaskIntoConstraints = false
-        contentView.addSubview(copyright)
-
-        // MARK: Constraints
-
-        var constraints: [NSLayoutConstraint] = [
-            iconView.topAnchor.constraint(equalTo: contentView.safeAreaLayoutGuide.topAnchor, constant: 24),
-            iconView.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
+        NSLayoutConstraint.activate([
             iconView.widthAnchor.constraint(equalToConstant: 72),
             iconView.heightAnchor.constraint(equalToConstant: 72),
-
-            nameLabel.topAnchor.constraint(equalTo: iconView.bottomAnchor, constant: 12),
-            nameLabel.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
-
-            versionBadge.topAnchor.constraint(equalTo: nameLabel.bottomAnchor, constant: 6),
-            versionBadge.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
-
-            sep1.topAnchor.constraint(equalTo: versionBadge.bottomAnchor, constant: 20),
-            sep1.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 22),
-            sep1.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -22),
-            sep1.heightAnchor.constraint(equalToConstant: 1),
-        ]
-
-        // Chain feature rows
-        var prevBottom = sep1.bottomAnchor
-        for (i, row) in featureRows.enumerated() {
-            constraints += [
-                row.topAnchor.constraint(equalTo: prevBottom, constant: i == 0 ? 16 : 10),
-                row.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 22),
-                row.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -22),
-            ]
-            prevBottom = row.bottomAnchor
-        }
-
-        constraints += [
-            sep2.topAnchor.constraint(equalTo: prevBottom, constant: 16),
-            sep2.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 22),
-            sep2.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -22),
-            sep2.heightAnchor.constraint(equalToConstant: 1),
-
-            copyright.topAnchor.constraint(equalTo: sep2.bottomAnchor, constant: 12),
-            copyright.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
-            copyright.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -16),
-        ]
-
-        NSLayoutConstraint.activate(constraints)
-    }
-
-    // MARK: - Helpers
-
-    private func makeSeparator() -> NSView {
-        let v = NSView()
-        v.wantsLayer = true
-        v.layer?.backgroundColor = NSColor(white: 0.18, alpha: 1).cgColor
-        v.translatesAutoresizingMaskIntoConstraints = false
-        return v
-    }
-
-    /// Small pill-shaped version badge.
-    private func makeVersionBadge(_ text: String) -> NSView {
-        let badge = NSView()
-        badge.wantsLayer = true
-        badge.layer?.backgroundColor = NSColor(white: 0.14, alpha: 1).cgColor
-        badge.layer?.cornerRadius = 9
-        badge.layer?.borderWidth = 1
-        badge.layer?.borderColor = NSColor(white: 0.28, alpha: 1).cgColor
-        badge.translatesAutoresizingMaskIntoConstraints = false
-
-        let label = NSTextField(labelWithString: text)
-        label.font = .monospacedSystemFont(ofSize: 11, weight: .regular)
-        label.textColor = NSColor(white: 0.6, alpha: 1)
-        label.translatesAutoresizingMaskIntoConstraints = false
-        badge.addSubview(label)
-
-        NSLayoutConstraint.activate([
-            label.topAnchor.constraint(equalTo: badge.topAnchor, constant: 3),
-            label.bottomAnchor.constraint(equalTo: badge.bottomAnchor, constant: -3),
-            label.leadingAnchor.constraint(equalTo: badge.leadingAnchor, constant: 10),
-            label.trailingAnchor.constraint(equalTo: badge.trailingAnchor, constant: -10),
         ])
 
-        return badge
+        let titleLabel = NSTextField(labelWithString: "LangSwitcher")
+        titleLabel.font = .systemFont(ofSize: 24, weight: .bold)
+        titleLabel.textColor = .labelColor
+
+        let versionLabel = NSTextField(labelWithString: appVersionText())
+        versionLabel.font = .systemFont(ofSize: 12, weight: .medium)
+        versionLabel.textColor = .secondaryLabelColor
+
+        let summaryLabel = NSTextField(labelWithString: "A lightweight menu bar app that fixes keyboard layout mix-ups between English and Cyrillic as you type.")
+        summaryLabel.font = .systemFont(ofSize: 13)
+        summaryLabel.textColor = .secondaryLabelColor
+        summaryLabel.alignment = .center
+        summaryLabel.maximumNumberOfLines = 0
+        summaryLabel.lineBreakMode = .byWordWrapping
+
+        stack.addArrangedSubview(iconView)
+        stack.addArrangedSubview(titleLabel)
+        stack.addArrangedSubview(versionLabel)
+        stack.addArrangedSubview(summaryLabel)
+        stack.addArrangedSubview(makeFeaturePills())
+
+        let copyrightLabel = NSTextField(labelWithString: "© \(Calendar.current.component(.year, from: Date())) LangSwitcher")
+        copyrightLabel.font = .systemFont(ofSize: 11)
+        copyrightLabel.textColor = .tertiaryLabelColor
+        stack.addArrangedSubview(copyrightLabel)
+
+        NSLayoutConstraint.activate([
+            backgroundView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
+            backgroundView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
+            backgroundView.topAnchor.constraint(equalTo: contentView.topAnchor),
+            backgroundView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
+
+            stack.leadingAnchor.constraint(equalTo: backgroundView.leadingAnchor, constant: 24),
+            stack.trailingAnchor.constraint(equalTo: backgroundView.trailingAnchor, constant: -24),
+            stack.topAnchor.constraint(equalTo: backgroundView.topAnchor, constant: 28),
+            stack.bottomAnchor.constraint(lessThanOrEqualTo: backgroundView.bottomAnchor, constant: -24),
+        ])
     }
 
-    private func makeFeatureRow(symbol: String, title: String, description: String) -> NSView {
-        let row = NSView()
-        row.translatesAutoresizingMaskIntoConstraints = false
+    private func makeFeaturePills() -> NSView {
+        let pills = NSStackView()
+        pills.orientation = .vertical
+        pills.alignment = .centerX
+        pills.spacing = 8
 
-        // Icon container — small dark circle
-        let iconContainer = NSView()
-        iconContainer.wantsLayer = true
-        iconContainer.layer?.backgroundColor = NSColor(white: 0.12, alpha: 1).cgColor
-        iconContainer.layer?.cornerRadius = 10
-        iconContainer.translatesAutoresizingMaskIntoConstraints = false
-        row.addSubview(iconContainer)
+        pills.addArrangedSubview(makePill(symbol: "arrow.2.squarepath", text: "Auto-corrects mistyped layouts"))
+        pills.addArrangedSubview(makePill(symbol: "bolt.fill", text: "Supports instant force convert"))
+        pills.addArrangedSubview(makePill(symbol: "text.badge.checkmark", text: "Includes text shortcuts"))
+
+        return pills
+    }
+
+    private func makePill(symbol: String, text: String) -> NSView {
+        let container = NSView()
+        container.wantsLayer = true
+        container.layer?.cornerRadius = 10
+        container.layer?.backgroundColor = NSColor.controlBackgroundColor.withAlphaComponent(0.9).cgColor
+        container.layer?.borderWidth = 1
+        container.layer?.borderColor = NSColor.separatorColor.cgColor
 
         let icon = NSImageView()
-        if let img = NSImage(systemSymbolName: symbol, accessibilityDescription: nil) {
-            let cfg = NSImage.SymbolConfiguration(pointSize: 14, weight: .medium)
-            icon.image = img.withSymbolConfiguration(cfg)
-        }
-        icon.contentTintColor = NSColor.controlAccentColor
+        icon.image = NSImage(systemSymbolName: symbol, accessibilityDescription: text)
+        icon.contentTintColor = .controlAccentColor
         icon.translatesAutoresizingMaskIntoConstraints = false
-        iconContainer.addSubview(icon)
 
-        let titleLabel = NSTextField(labelWithString: title)
-        titleLabel.font = .systemFont(ofSize: 13, weight: .semibold)
-        titleLabel.textColor = .white
-        titleLabel.translatesAutoresizingMaskIntoConstraints = false
-        row.addSubview(titleLabel)
+        let label = NSTextField(labelWithString: text)
+        label.font = .systemFont(ofSize: 12, weight: .medium)
+        label.textColor = .labelColor
+        label.translatesAutoresizingMaskIntoConstraints = false
 
-        let descLabel = NSTextField(labelWithString: description)
-        descLabel.font = .systemFont(ofSize: 11)
-        descLabel.textColor = NSColor(white: 0.5, alpha: 1)
-        descLabel.lineBreakMode = .byWordWrapping
-        descLabel.maximumNumberOfLines = 0
-        descLabel.preferredMaxLayoutWidth = 260
-        descLabel.translatesAutoresizingMaskIntoConstraints = false
-        row.addSubview(descLabel)
+        container.addSubview(icon)
+        container.addSubview(label)
 
         NSLayoutConstraint.activate([
-            iconContainer.leadingAnchor.constraint(equalTo: row.leadingAnchor),
-            iconContainer.topAnchor.constraint(equalTo: row.topAnchor),
-            iconContainer.widthAnchor.constraint(equalToConstant: 32),
-            iconContainer.heightAnchor.constraint(equalToConstant: 32),
+            icon.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 10),
+            icon.centerYAnchor.constraint(equalTo: container.centerYAnchor),
+            icon.widthAnchor.constraint(equalToConstant: 14),
+            icon.heightAnchor.constraint(equalToConstant: 14),
 
-            icon.centerXAnchor.constraint(equalTo: iconContainer.centerXAnchor),
-            icon.centerYAnchor.constraint(equalTo: iconContainer.centerYAnchor),
-
-            titleLabel.leadingAnchor.constraint(equalTo: iconContainer.trailingAnchor, constant: 12),
-            titleLabel.topAnchor.constraint(equalTo: row.topAnchor),
-            titleLabel.trailingAnchor.constraint(equalTo: row.trailingAnchor),
-
-            descLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
-            descLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 3),
-            descLabel.trailingAnchor.constraint(equalTo: row.trailingAnchor),
-            descLabel.bottomAnchor.constraint(equalTo: row.bottomAnchor),
+            label.leadingAnchor.constraint(equalTo: icon.trailingAnchor, constant: 8),
+            label.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -10),
+            label.topAnchor.constraint(equalTo: container.topAnchor, constant: 6),
+            label.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -6),
         ])
 
-        return row
+        return container
+    }
+
+    private func appVersionText() -> String {
+        let shortVersion = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String
+        let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String
+
+        switch (shortVersion, build) {
+        case let (version?, build?) where version != build:
+            return "Version \(version) (\(build))"
+        case let (version?, _):
+            return "Version \(version)"
+        case let (_, build?):
+            return "Build \(build)"
+        default:
+            return "Version unavailable"
+        }
     }
 }
