@@ -7,12 +7,6 @@ final class ShortcutRecorder {
     private var localMonitor: Any?
     private(set) var isRecording = false
 
-    deinit {
-        if let localMonitor {
-            NSEvent.removeMonitor(localMonitor)
-        }
-    }
-
     func start(onCancel: @escaping () -> Void,
                onShortcut: @escaping (_ keyCode: Int, _ modifiers: UInt64) -> Void) {
         stop()

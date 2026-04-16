@@ -30,18 +30,6 @@ final class MenuBarController {
         }
     }
 
-    deinit {
-        if let settingsCloseObserver {
-            NotificationCenter.default.removeObserver(settingsCloseObserver)
-        }
-        if let welcomeCloseObserver {
-            NotificationCenter.default.removeObserver(welcomeCloseObserver)
-        }
-        if let aboutCloseObserver {
-            NotificationCenter.default.removeObserver(aboutCloseObserver)
-        }
-    }
-
     // MARK: - Menu
 
     private static func menuItem(title: String,
@@ -150,6 +138,7 @@ final class MenuBarController {
         ) { [weak self] _ in
             guard let self else { return }
             MainActor.assumeIsolated {
+                self.settingsController?.stopShortcutRecording()
                 if let settingsCloseObserver = self.settingsCloseObserver {
                     NotificationCenter.default.removeObserver(settingsCloseObserver)
                     self.settingsCloseObserver = nil
@@ -173,6 +162,7 @@ final class MenuBarController {
         ) { [weak self] _ in
             guard let self else { return }
             MainActor.assumeIsolated {
+                self.welcomeController?.stopShortcutRecording()
                 if let welcomeCloseObserver = self.welcomeCloseObserver {
                     NotificationCenter.default.removeObserver(welcomeCloseObserver)
                     self.welcomeCloseObserver = nil

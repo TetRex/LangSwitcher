@@ -35,21 +35,6 @@ final class KeyboardInterceptor {
         startEventTap()
     }
 
-    deinit {
-        if let tap = eventTap {
-            CGEvent.tapEnable(tap: tap, enable: false)
-        }
-        if let source = runLoopSource {
-            CFRunLoopRemoveSource(CFRunLoopGetMain(), source, .commonModes)
-        }
-        if let appActivationObserver {
-            NSWorkspace.shared.notificationCenter.removeObserver(appActivationObserver)
-        }
-        if let inputSourceObserver {
-            DistributedNotificationCenter.default().removeObserver(inputSourceObserver)
-        }
-    }
-
     // MARK: - Event tap
 
     func startEventTap() {

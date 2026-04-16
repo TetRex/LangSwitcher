@@ -273,6 +273,10 @@ final class SettingsWindowController: NSWindowController {
         }
     }
 
+    func stopShortcutRecording() {
+        shortcutRecorder.stop()
+    }
+
     // MARK: - Text shortcuts actions
 
     @objc private func addShortcut() {

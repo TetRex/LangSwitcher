@@ -407,6 +407,10 @@ final class WelcomeWindowController: NSWindowController {
         }
     }
 
+    func stopShortcutRecording() {
+        shortcutRecorder.stop()
+    }
+
     // MARK: - Actions
 
     @objc private func grantAccessibility() {
