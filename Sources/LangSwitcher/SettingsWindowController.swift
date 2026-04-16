@@ -343,7 +343,7 @@ final class SettingsWindowController: NSWindowController {
     }
 
     @objc private func removeShortcut() {
-        let row = shortcutsTableView.selectedRow
+        let row = activeShortcutRow()
         guard row >= 0 else { return }
         TextShortcutsStore.shared.remove(at: row)
         shortcutsTableView.reloadData()
@@ -382,7 +382,7 @@ final class SettingsWindowController: NSWindowController {
     }
 
     private func updateValidationUI() {
-        let selectedRow = shortcutsTableView.selectedRow
+        let selectedRow = activeShortcutRow()
         removeButton.isEnabled = selectedRow >= 0
 
         if selectedRow >= 0, let issue = issue(forRow: selectedRow) {
@@ -399,7 +399,7 @@ final class SettingsWindowController: NSWindowController {
             }
         }
 
-        shortcutsTableView.reloadData()
+        refreshVisibleCellStyles()
     }
 
     private func styleTextField(_ textField: NSTextField, row: Int, isTrigger: Bool) {
@@ -424,6 +424,31 @@ final class SettingsWindowController: NSWindowController {
         store.update(at: row,
                      trigger: trigger ?? current.trigger,
                      expansion: expansion ?? current.expansion)
+    }
+
+    private func activeShortcutRow() -> Int {
+        if shortcutsTableView.selectedRow >= 0 {
+            return shortcutsTableView.selectedRow
+        }
+        if shortcutsTableView.editedRow >= 0 {
+            return shortcutsTableView.editedRow
+        }
+        return -1
+    }
+
+    private func refreshVisibleCellStyles() {
+        let rowRange = shortcutsTableView.rows(in: shortcutsTableView.visibleRect)
+        guard rowRange.length > 0 else { return }
+
+        let endRow = rowRange.location + rowRange.length
+        for row in rowRange.location..<endRow {
+            for (column, isTrigger) in [(0, true), (1, false)] {
+                guard let cell = shortcutsTableView.view(atColumn: column, row: row, makeIfNecessary: false) as? NSTableCellView,
+                      let textField = cell.textField else { continue }
+                styleTextField(textField, row: row, isTrigger: isTrigger)
+                cell.toolTip = textField.toolTip
+            }
+        }
     }
 }
 
