@@ -16,7 +16,11 @@ final class KeyboardInterceptor {
     private let doubleTapInterval: CFAbsoluteTime = 0.4
     private var appActivationObserver: NSObjectProtocol?
     private var inputSourceObserver: NSObjectProtocol?
-    private var inputSourceCache = InputSourceCache.empty
+    private var inputSourceCache = InputSourceCache(
+        englishSource: nil,
+        cyrillicFallbackSource: nil,
+        cyrillicSourcesByLanguage: [:]
+    )
     var isEnabled: Bool = true
     /// Virtual key code for the force‑convert shortcut.
     var forceConvertKeyCode: Int
@@ -336,12 +340,6 @@ final class KeyboardInterceptor {
         var englishSource: TISInputSource?
         var cyrillicFallbackSource: TISInputSource?
         var cyrillicSourcesByLanguage: [String: TISInputSource]
-
-        static let empty = Self(
-            englishSource: nil,
-            cyrillicFallbackSource: nil,
-            cyrillicSourcesByLanguage: [:]
-        )
     }
 
     private static let englishLayoutIdentifiers = [
@@ -383,7 +381,11 @@ final class KeyboardInterceptor {
     private func refreshInputSourceCache() {
         guard let sources = TISCreateInputSourceList(Self.inputSourceCriteria, false)?
                 .takeRetainedValue() as? [TISInputSource] else {
-            inputSourceCache = .empty
+            inputSourceCache = InputSourceCache(
+                englishSource: nil,
+                cyrillicFallbackSource: nil,
+                cyrillicSourcesByLanguage: [:]
+            )
             return
         }
 
