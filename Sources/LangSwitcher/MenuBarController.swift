@@ -31,9 +31,15 @@ final class MenuBarController {
     }
 
     deinit {
-        removeWindowCloseObserver(at: \.settingsCloseObserver)
-        removeWindowCloseObserver(at: \.welcomeCloseObserver)
-        removeWindowCloseObserver(at: \.aboutCloseObserver)
+        if let settingsCloseObserver {
+            NotificationCenter.default.removeObserver(settingsCloseObserver)
+        }
+        if let welcomeCloseObserver {
+            NotificationCenter.default.removeObserver(welcomeCloseObserver)
+        }
+        if let aboutCloseObserver {
+            NotificationCenter.default.removeObserver(aboutCloseObserver)
+        }
     }
 
     // MARK: - Menu
@@ -88,10 +94,7 @@ final class MenuBarController {
                 self?.interceptor.forceConvertKeyCode = keyCode
                 self?.interceptor.forceConvertModifiers = modifiers
             }
-            observeWindowClose(for: settingsController?.window,
-                               storeIn: \.settingsCloseObserver) { [weak self] in
-                self?.settingsController = nil
-            }
+            installSettingsCloseObserver(for: settingsController?.window)
         }
         settingsController?.showWindow(nil)
         settingsController?.window?.makeKeyAndOrderFront(nil)
@@ -105,10 +108,7 @@ final class MenuBarController {
     @objc private func showAbout() {
         if aboutController == nil {
             aboutController = AboutWindowController()
-            observeWindowClose(for: aboutController?.window,
-                               storeIn: \.aboutCloseObserver) { [weak self] in
-                self?.aboutController = nil
-            }
+            installAboutCloseObserver(for: aboutController?.window)
         }
         aboutController?.showWindow(nil)
         aboutController?.window?.makeKeyAndOrderFront(nil)
@@ -129,41 +129,80 @@ final class MenuBarController {
                 self?.interceptor.forceConvertKeyCode = keyCode
                 self?.interceptor.forceConvertModifiers = modifiers
             }
-            observeWindowClose(for: welcomeController?.window,
-                               storeIn: \.welcomeCloseObserver) { [weak self] in
-                self?.welcomeController = nil
-                // Retry starting the event tap after the user finishes setup.
-                self?.interceptor.startEventTap()
-            }
+            installWelcomeCloseObserver(for: welcomeController?.window)
         }
         welcomeController?.showWindow(nil)
         welcomeController?.window?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
     }
 
-    private func observeWindowClose(for window: NSWindow?,
-                                    storeIn keyPath: ReferenceWritableKeyPath<MenuBarController, NSObjectProtocol?>,
-                                    onClose: @escaping @MainActor () -> Void) {
-        removeWindowCloseObserver(at: keyPath)
+    private func installSettingsCloseObserver(for window: NSWindow?) {
+        if let settingsCloseObserver {
+            NotificationCenter.default.removeObserver(settingsCloseObserver)
+            self.settingsCloseObserver = nil
+        }
         guard let window else { return }
 
-        self[keyPath: keyPath] = NotificationCenter.default.addObserver(
+        settingsCloseObserver = NotificationCenter.default.addObserver(
             forName: NSWindow.willCloseNotification,
             object: window,
             queue: .main
         ) { [weak self] _ in
             guard let self else { return }
             MainActor.assumeIsolated {
-                self.removeWindowCloseObserver(at: keyPath)
-                onClose()
+                if let settingsCloseObserver = self.settingsCloseObserver {
+                    NotificationCenter.default.removeObserver(settingsCloseObserver)
+                    self.settingsCloseObserver = nil
+                }
+                self.settingsController = nil
             }
         }
     }
 
-    private func removeWindowCloseObserver(at keyPath: ReferenceWritableKeyPath<MenuBarController, NSObjectProtocol?>) {
-        if let observer = self[keyPath: keyPath] {
-            NotificationCenter.default.removeObserver(observer)
-            self[keyPath: keyPath] = nil
+    private func installWelcomeCloseObserver(for window: NSWindow?) {
+        if let welcomeCloseObserver {
+            NotificationCenter.default.removeObserver(welcomeCloseObserver)
+            self.welcomeCloseObserver = nil
+        }
+        guard let window else { return }
+
+        welcomeCloseObserver = NotificationCenter.default.addObserver(
+            forName: NSWindow.willCloseNotification,
+            object: window,
+            queue: .main
+        ) { [weak self] _ in
+            guard let self else { return }
+            MainActor.assumeIsolated {
+                if let welcomeCloseObserver = self.welcomeCloseObserver {
+                    NotificationCenter.default.removeObserver(welcomeCloseObserver)
+                    self.welcomeCloseObserver = nil
+                }
+                self.welcomeController = nil
+                self.interceptor.startEventTap()
+            }
+        }
+    }
+
+    private func installAboutCloseObserver(for window: NSWindow?) {
+        if let aboutCloseObserver {
+            NotificationCenter.default.removeObserver(aboutCloseObserver)
+            self.aboutCloseObserver = nil
+        }
+        guard let window else { return }
+
+        aboutCloseObserver = NotificationCenter.default.addObserver(
+            forName: NSWindow.willCloseNotification,
+            object: window,
+            queue: .main
+        ) { [weak self] _ in
+            guard let self else { return }
+            MainActor.assumeIsolated {
+                if let aboutCloseObserver = self.aboutCloseObserver {
+                    NotificationCenter.default.removeObserver(aboutCloseObserver)
+                    self.aboutCloseObserver = nil
+                }
+                self.aboutController = nil
+            }
         }
     }
 
